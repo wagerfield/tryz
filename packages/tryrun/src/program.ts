@@ -4,7 +4,21 @@ import type { Result } from "./result"
 // TYPES
 // ═════════════════════════════════════════════════════════════════════════════
 
-export type AnyService = { readonly name: string }
+export type AnyService = {
+	readonly name: string
+}
+
+export type RetryPolicy = {
+	times?: number
+	delay?: number | ((attempt: number) => number)
+	while?: (error: unknown) => boolean
+}
+
+export type ConcurrencyOptions = {
+	concurrency?: number
+}
+
+export type ProgramMode = "result" | "unwrap"
 
 export type ProgramContext<C> = {
 	signal: AbortSignal
@@ -12,26 +26,12 @@ export type ProgramContext<C> = {
 }
 
 export type ProgramMiddleware<C> = (
-	context: ProgramContext<C> & {
-		next: () => Promise<unknown>
-	},
+	context: ProgramContext<C> & { next: () => Promise<unknown> },
 ) => Promise<unknown>
 
-export type ProgramMode = "normal" | "result"
-
-export interface ProgramRunOptions {
+export type ProgramRunOptions = {
 	signal?: AbortSignal
 	mode?: ProgramMode
-}
-
-export interface RetryPolicy {
-	times?: number
-	delay?: number | ((attempt: number) => number)
-	while?: (error: unknown) => boolean
-}
-
-export interface ConcurrencyOptions {
-	concurrency?: number
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -64,14 +64,6 @@ export type ExtractProgramResult<P> = P extends Program<
 // PROGRAM TUPLE UTILS
 // ═════════════════════════════════════════════════════════════════════════════
 
-export type ProgramValuesTuple<T extends readonly Program[]> = {
-	-readonly [P in keyof T]: ExtractProgramValues<T[P]>
-}
-
-export type ProgramResultTuple<T extends readonly Program[]> = {
-	-readonly [P in keyof T]: ExtractProgramResult<T[P]>
-}
-
 export type ExtractProgramTupleTypes<T extends readonly Program[]> =
 	T[number] extends Program<infer T, infer E, infer R> ? [T, E, R] : never
 
@@ -84,12 +76,35 @@ export type ExtractProgramTupleErrors<T extends readonly Program[]> =
 export type ExtractProgramTupleRequirements<T extends readonly Program[]> =
 	ExtractProgramTupleTypes<T>[2]
 
+export type ProgramValuesTuple<T extends readonly Program[]> = {
+	-readonly [P in keyof T]: ExtractProgramValues<T[P]>
+}
+
+export type ProgramResultTuple<T extends readonly Program[]> = {
+	-readonly [P in keyof T]: ExtractProgramResult<T[P]>
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PROGRAM
 // ═════════════════════════════════════════════════════════════════════════════
 
 export class Program<T = unknown, E = unknown, R = unknown> {
 	private constructor() {}
+
+	// ───────────────────────────────────────────────────────────────────────────
+	// DEPENDENCY INJECTION
+	// ───────────────────────────────────────────────────────────────────────────
+
+	provide<S extends AnyService>(
+		_service: S,
+		_implementation: S,
+	): Program<T, E, Exclude<R, S>> {
+		throw new Error("Program.provide not implemented")
+	}
+
+	// ───────────────────────────────────────────────────────────────────────────
+	// TRANSFORMATION
+	// ───────────────────────────────────────────────────────────────────────────
 
 	map<U>(_fn: (value: T) => U): Program<U, E, R> {
 		throw new Error("Program.map not implemented")
@@ -128,17 +143,6 @@ export class Program<T = unknown, E = unknown, R = unknown> {
 	): Program<T | U, F, R | R2> {
 		throw new Error("Program.orElse not implemented")
 	}
-
-	// ───────────────────────────────────────────────────────────────────────────
-	// EXECUTION
-	// ───────────────────────────────────────────────────────────────────────────
-
-	provide<S extends AnyService>(
-		_service: S,
-		_implementation: S,
-	): Program<T, E, Exclude<R, S>> {
-		throw new Error("Program.provide not implemented")
-	}
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -146,6 +150,14 @@ export class Program<T = unknown, E = unknown, R = unknown> {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export class ProgramBuilder<C = never, R = never> {
+	use(_middleware: ProgramMiddleware<C>): ProgramBuilder<C, R> {
+		throw new Error("ProgramBuilder.use not implemented")
+	}
+
+	// ───────────────────────────────────────────────────────────────────────────
+	// DEPENDENCY INJECTION
+	// ───────────────────────────────────────────────────────────────────────────
+
 	require<S extends AnyService>(_service: S): ProgramBuilder<C | S, R | S> {
 		throw new Error("ProgramBuilder.require not implemented")
 	}
@@ -155,10 +167,6 @@ export class ProgramBuilder<C = never, R = never> {
 		_implementation: S,
 	): ProgramBuilder<C, Exclude<R, S>> {
 		throw new Error("ProgramBuilder.provide not implemented")
-	}
-
-	use(_middleware: ProgramMiddleware<C>): ProgramBuilder<C, R> {
-		throw new Error("ProgramBuilder.use not implemented")
 	}
 
 	// ───────────────────────────────────────────────────────────────────────────
@@ -218,13 +226,9 @@ export class ProgramBuilder<C = never, R = never> {
 	run<T, E, Options extends ProgramRunOptions>(
 		_program: Program<T, E, never>,
 		_options?: Options,
-	): Options["mode"] extends "result" ? Promise<Result<T, E>> : Promise<T> {
+	): Options["mode"] extends "unwrap" ? Promise<T> : Promise<Result<T, E>> {
 		throw new Error("Program.run not implemented")
 	}
 }
-
-// ═════════════════════════════════════════════════════════════════════════════
-// ENTRY POINT
-// ═════════════════════════════════════════════════════════════════════════════
 
 export const x = new ProgramBuilder()
