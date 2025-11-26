@@ -8,20 +8,19 @@
 		"//#lint:write": {
 			"cache": false
 		},
+		"//#test:run": {
+			"outputs": ["coverage/**"]
+		},
+		"//#test:watch": {
+			"interactive": true,
+			"persistent": true,
+			"cache": false
+		},
 		"transit": {
 			"dependsOn": ["^transit"]
 		},
 		"type:check": {
 			"dependsOn": ["transit"]
-		},
-		"test:run": {
-			"dependsOn": ["transit"],
-			"cache": false
-		},
-		"test:watch": {
-			"interactive": true,
-			"persistent": true,
-			"cache": false
 		},
 		"dev": {
 			"inputs": ["$TURBO_DEFAULT$", ".env*"],

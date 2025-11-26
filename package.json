@@ -11,8 +11,8 @@
 		"dev": "turbo run dev",
 		"build": "turbo run build",
 		"start": "turbo run start",
-		"test:run": "turbo run test:run",
-		"test:watch": "turbo run test:watch",
+		"test:run": "vitest --run",
+		"test:watch": "vitest --watch",
 		"type:check": "turbo run type:check",
 		"lint:write": "biome check . --write",
 		"lint:check": "biome check .",
@@ -35,6 +35,7 @@
 		"lefthook": "2.0.4",
 		"prettier": "3.6.2",
 		"turbo": "2.6.1",
-		"typescript": "5.9.3"
+		"typescript": "5.9.3",
+		"vitest": "4.0.14"
 	}
 }
