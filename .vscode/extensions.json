@@ -1,0 +1,15 @@
+{
+	"recommendations": [
+		"biomejs.biome",
+		"streetsidesoftware.code-spell-checker",
+		"mikestead.dotenv",
+		"editorconfig.editorconfig",
+		"dbaeumer.vscode-eslint",
+		"davidanson.vscode-markdownlint",
+		"csstools.postcss",
+		"esbenp.prettier-vscode",
+		"yoavbls.pretty-ts-errors",
+		"bradlc.vscode-tailwindcss",
+		"vitest.explorer"
+	]
+}
