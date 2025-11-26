@@ -1,0 +1,8 @@
+{
+	"private": true,
+	"type": "module",
+	"name": "@tryrun/tsconfig",
+	"publishConfig": {
+		"access": "public"
+	}
+}
