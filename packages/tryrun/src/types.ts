@@ -29,37 +29,28 @@ export type RunOptions = {
 /**
  * Extract the success value from T | Promise<T> | Program<T, E, R>
  */
-export type UnwrapValue<T> = T extends Program<infer U, unknown, unknown>
-	? U
-	: Awaited<T>
+export type UnwrapValue<T> =
+	T extends Program<infer U, unknown, unknown> ? U : Awaited<T>
 
 /**
  * Extract the error type from Program, or never for plain values/Promises
  */
-export type UnwrapError<T> = T extends Program<unknown, infer E, unknown>
-	? E
-	: never
+export type UnwrapError<T> =
+	T extends Program<unknown, infer E, unknown> ? E : never
 
 /**
  * Extract the requirements from Program, or never for plain values/Promises
  */
-export type UnwrapRequirements<T> = T extends Program<unknown, unknown, infer R>
-	? R
-	: never
+export type UnwrapRequirements<T> =
+	T extends Program<unknown, unknown, infer R> ? R : never
 
 // Program Type Utils
 
-export type ExtractProgramResult<P> = P extends Program<infer T, infer E>
-	? Result<T, E>
-	: never
+export type ExtractProgramResult<P> =
+	P extends Program<infer T, infer E> ? Result<T, E> : never
 
-export type ExtractProgramTypes<P> = P extends Program<
-	infer T,
-	infer E,
-	infer R
->
-	? [T, E, R]
-	: never
+export type ExtractProgramTypes<P> =
+	P extends Program<infer T, infer E, infer R> ? [T, E, R] : never
 
 export type ExtractProgramValues<P> = ExtractProgramTypes<P>[0]
 

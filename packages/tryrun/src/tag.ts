@@ -36,9 +36,8 @@ export interface Tag<
  * type T = TypeOf<Success<string>> // "Result"
  * ```
  */
-export type TypeOf<T extends Tag> = T extends Tag<infer Type, string>
-	? Type
-	: never
+export type TypeOf<T extends Tag> =
+	T extends Tag<infer Type, string> ? Type : never
 
 /**
  * Extracts the `KeyId` value from a `Tag`
@@ -48,6 +47,5 @@ export type TypeOf<T extends Tag> = T extends Tag<infer Type, string>
  * type K = KeyOf<Success<string>> // "Success"
  * ```
  */
-export type KeyOf<T extends Tag> = T extends Tag<string, infer Key>
-	? Key
-	: never
+export type KeyOf<T extends Tag> =
+	T extends Tag<string, infer Key> ? Key : never
