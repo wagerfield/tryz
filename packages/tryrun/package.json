@@ -1,6 +1,6 @@
 {
 	"name": "tryrun",
-	"version": "0.1.0",
+	"version": "0.0.0",
 	"description": "Compose programs with errors and dependencies tracked at the type level. Zero runtime surprises.",
 	"homepage": "https://tryrun.vercel.app",
 	"license": "MIT",
