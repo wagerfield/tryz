@@ -173,17 +173,18 @@ const errorProg = x.try(() =>
 errorProg.catch((err) => `recovered from: ${err}`)
 // → Program<"success" | string, never, never>
 
-// Catch by tag
+// Catch by tag (tag is type-safe: "NotFound" | "Timeout")
 errorProg.catch("NotFound", (err) => {
+	// err is typed as NotFoundError
 	console.log(`Resource not found: ${err.resource}`)
 	return null // value recovers to success channel
 })
 // → Program<"success" | null, TimeoutError, never>
 
-// Catch multiple by tags
+// Catch multiple by tags (keys are type-safe, handlers receive typed errors)
 errorProg.catch({
-	NotFound: (err) => `not found: ${(err as NotFoundError).resource}`,
-	Timeout: (err) => `timed out after ${(err as TimeoutError).ms}ms`,
+	NotFound: (err) => `not found: ${err.resource}`,
+	Timeout: (err) => `timed out after ${err.ms}ms`,
 })
 // → Program<"success" | string, never, never>
 

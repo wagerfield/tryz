@@ -10,6 +10,19 @@ import type {
 } from "./types"
 
 /**
+ * Extracts the KeyId values from a union of tagged errors.
+ * Only extracts keys from types that have a [KeyId] property.
+ */
+type ErrorKey<E> = E extends { [KeyId]: infer K extends string } ? K : never
+
+/**
+ * Extracts a union of all return types from a handlers object.
+ */
+type HandlersReturn<H> = {
+	[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
+}[keyof H]
+
+/**
  * A program that produces a value of type T, may fail with error E,
  * and requires token implementations R to be provided before it can run.
  *
@@ -115,7 +128,7 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	 * // Catch multiple by tags
 	 * program.catch({
 	 *   NotFound: err => null,
-	 *   Timeout: err => x.error(new RetryError())
+	 *   Timeout: err => x.fail(new RetryError())
 	 * })
 	 * ```
 	 */
@@ -123,7 +136,7 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 		fn: (error: E) => F,
 	): Program<T | UnwrapValue<F>, UnwrapError<F>, R | UnwrapRequirements<F>>
 
-	catch<Tag extends string, F>(
+	catch<Tag extends ErrorKey<E>, F>(
 		tag: Tag,
 		fn: (error: Extract<E, { [KeyId]: Tag }>) => F,
 	): Program<
@@ -132,33 +145,17 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 		R | UnwrapRequirements<F>
 	>
 
-	catch<Handlers extends Record<string, (error: unknown) => unknown>>(
+	catch<
+		Handlers extends {
+			[K in ErrorKey<E>]?: (error: Extract<E, { [KeyId]: K }>) => unknown
+		},
+	>(
 		handlers: Handlers,
 	): Program<
-		| T
-		| UnwrapValue<
-				NonNullable<Handlers[keyof Handlers]> extends (
-					error: never,
-				) => infer Ret
-					? Ret
-					: never
-		  >,
+		T | UnwrapValue<HandlersReturn<Handlers>>,
 		| Exclude<E, { [KeyId]: keyof Handlers }>
-		| UnwrapError<
-				NonNullable<Handlers[keyof Handlers]> extends (
-					error: never,
-				) => infer Ret
-					? Ret
-					: never
-		  >,
-		| R
-		| UnwrapRequirements<
-				NonNullable<Handlers[keyof Handlers]> extends (
-					error: never,
-				) => infer Ret
-					? Ret
-					: never
-		  >
+		| UnwrapError<HandlersReturn<Handlers>>,
+		R | UnwrapRequirements<HandlersReturn<Handlers>>
 	>
 
 	catch<F>(
