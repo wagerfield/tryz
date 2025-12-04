@@ -17,6 +17,10 @@
 			"recommended": true,
 			"correctness": {
 				"noUnknownProperty": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noThenProperty": "off"
 			}
 		}
 	},

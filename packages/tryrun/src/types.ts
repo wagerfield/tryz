@@ -1,7 +1,14 @@
+import type { Context } from "./context"
 import type { Program } from "./program"
 import type { Result } from "./result"
 
-export type RetryPolicy = {
+export type Middleware<C> = (context: {
+	context: C
+	signal: AbortSignal
+	next: () => Promise<unknown>
+}) => Promise<unknown>
+
+export type RetryOptions = {
 	times?: number
 	delay?: number | ((attempt: number) => number)
 	while?: (error: unknown) => boolean
@@ -11,17 +18,27 @@ export type ConcurrencyOptions = {
 	concurrency?: number
 }
 
-export type Middleware<C> = (context: {
-	context: C
-	signal: AbortSignal
-	next: () => Promise<unknown>
-}) => Promise<unknown>
-
 export type RunMode = "result" | "unwrap"
 
 export type RunOptions = {
 	signal?: AbortSignal
 	mode?: RunMode
+}
+
+/**
+ * Options for the try method with exception catching.
+ */
+export type TryOptions<T, E, R> = {
+	try: (ctx: Context<R>) => T
+	catch: (e: unknown) => E
+}
+
+/**
+ * Observer for tap method with value and error handlers.
+ */
+export type TapObserver<T, E> = {
+	value?: (value: T) => void | Promise<void>
+	error?: (error: E) => void | Promise<void>
 }
 
 // Unwrap Utils (for unified map/try that accepts T | Promise<T> | Program<T, E, R>)

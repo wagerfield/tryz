@@ -11,6 +11,7 @@ import type {
 	Middleware,
 	ProgramValuesTuple,
 	RunOptions,
+	TryOptions,
 	UnwrapError,
 	UnwrapRequirements,
 	UnwrapValue,
@@ -93,26 +94,49 @@ export class Shell<R = never> {
 	 *   }
 	 *   return fetchUser()        // Returns Program
 	 * })
+	 *
+	 * // Catch thrown exceptions
+	 * const prog = shell.try({
+	 *   try: (ctx) => JSON.parse(ctx.get(Config).json),
+	 *   catch: (e) => new ParseError({ cause: e })
+	 * })
 	 * ```
 	 */
-	try<T, E = unknown>(
+	try<T>(
 		_fn: (context: Context<R>) => T,
-		_catch?: (error: unknown) => E,
+	): Program<UnwrapValue<T>, UnwrapError<T>, R | UnwrapRequirements<T>>
+
+	try<T, E>(
+		_options: TryOptions<T, E, R>,
+	): Program<UnwrapValue<T>, E | UnwrapError<T>, R | UnwrapRequirements<T>>
+
+	try<T, E>(
+		_fnOrOptions: ((context: Context<R>) => T) | TryOptions<T, E, R>,
 	): Program<UnwrapValue<T>, E | UnwrapError<T>, R | UnwrapRequirements<T>> {
 		throw new Error("Shell.try not implemented")
 	}
 
 	/**
 	 * Create a program that immediately fails with the given error.
+	 *
+	 * @example
+	 * ```ts
+	 * const prog = x.fail(new NotFoundError())
+	 * // prog: Program<never, NotFoundError, never>
+	 *
+	 * // Use in then/catch for branching
+	 * prog.then((v) => v > 0 ? v : x.fail(new NegativeError()))
+	 * ```
 	 */
-	fail<E>(_error: E): Program<never, E, R> {
+	fail<E>(_error: E): Program<never, E, never> {
 		throw new Error("Shell.fail not implemented")
 	}
 
 	/**
 	 * Combine multiple programs, running them all and collecting results.
+	 * Returns a tuple of values in the same order as the input programs.
 	 */
-	all<T extends readonly Program[]>(
+	all<const T extends readonly Program[]>(
 		_programs: T,
 		_options?: ConcurrencyOptions,
 	): Program<
@@ -126,7 +150,7 @@ export class Shell<R = never> {
 	/**
 	 * Run multiple programs, returning the first success.
 	 */
-	any<T extends readonly Program[]>(
+	any<const T extends readonly Program[]>(
 		_programs: T,
 	): Program<
 		ExtractProgramTupleValues<T>,
@@ -139,7 +163,7 @@ export class Shell<R = never> {
 	/**
 	 * Run multiple programs, returning the first to complete.
 	 */
-	race<T extends readonly Program[]>(
+	race<const T extends readonly Program[]>(
 		_programs: T,
 	): Program<
 		ExtractProgramTupleValues<T>,
