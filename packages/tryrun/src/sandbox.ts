@@ -170,11 +170,11 @@ const errorProg = x.try(() =>
 // errorProg: Program<"success", NotFoundError | TimeoutError, never>
 
 // Catch all errors
-errorProg.catch((err) => `recovered from: ${err}`)
+const e1 = errorProg.catch(() => `recovered` as const)
 // → Program<"success" | string, never, never>
 
 // Catch by tag (tag is type-safe: "NotFound" | "Timeout")
-errorProg.catch("NotFound", (err) => {
+const e2 = errorProg.catch("NotFound", (err) => {
 	// err is typed as NotFoundError
 	console.log(`Resource not found: ${err.resource}`)
 	return null // value recovers to success channel
@@ -182,11 +182,13 @@ errorProg.catch("NotFound", (err) => {
 // → Program<"success" | null, TimeoutError, never>
 
 // Catch multiple by tags (keys are type-safe, handlers receive typed errors)
-errorProg.catch({
-	NotFound: (err) => `not found: ${err.resource}`,
-	Timeout: (err) => `timed out after ${err.ms}ms`,
+const e3 = errorProg.catch({
+	NotFound: (err) => `not found: ${err.resource}` as const,
+	Timeout: (err) => `timed out after ${err.ms}ms` as const,
 })
 // → Program<"success" | string, never, never>
+
+x.all([e1, e2, e3])
 
 // ==============================================================
 // tap with function or observer

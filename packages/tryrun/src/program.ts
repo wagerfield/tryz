@@ -17,10 +17,13 @@ type ErrorKey<E> = E extends { [KeyId]: infer K extends string } ? K : never
 
 /**
  * Extracts a union of all return types from a handlers object.
+ * The `extends infer U ? U : never` pattern forces TypeScript to expand the type.
  */
 type HandlersReturn<H> = {
 	[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
-}[keyof H]
+}[keyof H] extends infer U
+	? U
+	: never
 
 /**
  * A program that produces a value of type T, may fail with error E,
