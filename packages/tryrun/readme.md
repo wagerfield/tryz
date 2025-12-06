@@ -30,31 +30,35 @@ npm install tryrun
 ```typescript
 import { x, Token, TypedError } from "tryrun"
 
-// Define a service
+// Define a service token
 class UserService extends Token("UserService")<{
 	getUser: (id: string) => Promise<User>
 }> {}
 
-// Define an error
+// Define a typed error
 class NotFoundError extends TypedError("NotFound")<{
 	resource: string
 }> {}
 
-// Create a program
+// Create a program with typed dependencies and errors
 const getUser = x.require(UserService).try(async (ctx) => {
 	const user = await ctx.get(UserService).getUser("123")
-	if (!user) throw new NotFoundError({ resource: "user" })
+	// Use x.fail() for type-safe errors
+	if (!user) return x.fail(new NotFoundError({ resource: "user" }))
 	return user
 })
-// Type: Program<User, NotFoundError | unknown, UserService>
+// Type: Program<User, NotFoundError, UserService>
 
 // Provide dependencies and run
 const result = await x.run(
 	getUser.provide(x.provide(UserService, { getUser: fetchUser })),
 )
 
-if (result.isSuccess()) {
-	console.log(result.value)
+// Result has discriminated union type
+if (result.success) {
+	console.log(result.value) // User
+} else {
+	console.error(result.error) // NotFoundError
 }
 ```
 

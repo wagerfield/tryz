@@ -75,7 +75,7 @@ const runnable = getUser
 // Run when all requirements are satisfied
 const result = await x.run(runnable)
 
-if (result.isSuccess()) {
+if (result.success) {
 	console.log(result.value) // User
 } else {
 	console.error(result.error) // NotFoundError
@@ -154,7 +154,7 @@ Programs return a `Result` that's either a `Success<T>` or `Failure<E>`.
 ```typescript
 const result = await x.run(program)
 
-if (result.isSuccess()) {
+if (result.success) {
 	console.log(result.value)
 } else {
 	console.error(result.error)
@@ -183,18 +183,35 @@ throw new ValidationError({
 
 ```typescript
 program
-	.map((value) => transform(value)) // Transform success value
-	.mapError((error) => normalize(error)) // Transform error
+	.then((value) => transform(value)) // Transform success value
 	.tap((value) => console.log(value)) // Side effect on success
-	.tapError((error) => logError(error)) // Side effect on error
+	.tap({
+		value: (v) => console.log("Success:", v),
+		error: (e) => console.error("Failed:", e),
+	}) // Side effects for both
 ```
 
 ### Error Handling
 
 ```typescript
-program
-	.catch((error) => fallbackValue) // Recover from errors
-	.catch((error) => fallbackProgram()) // Recover with another program
+// Catch all errors
+program.catch((error) => fallbackValue)
+
+// Catch by error name
+program.catch("NotFound", (error) => null)
+
+// Catch multiple errors by name
+program.catch({
+	NotFound: (error) => null,
+	Timeout: (error) => retryLater(),
+})
+
+// Handle thrown exceptions at creation
+const program = x.try({
+	try: (ctx) => JSON.parse(invalidJson),
+	catch: (e) => new ParseError({ cause: e }),
+})
+// Type: Program<T, ParseError, never>
 ```
 
 ### Resilience
@@ -202,14 +219,26 @@ program
 ```typescript
 program
 	.retry(3) // Retry up to 3 times
-	.retry({ times: 3, delay: 1000 }) // With delay
+	.retry({ times: 3, delay: 1000 }) // With delay between retries
+	.retry({ times: 3, while: (e) => isRetryable(e) }) // Conditional retry
 	.timeout(5000) // Timeout after 5 seconds
+	.timeout(5000, () => new TimeoutError()) // Custom timeout error
 ```
 
 ### Dependencies
 
 ```typescript
 program.provide(myProvider) // Satisfy requirements
+```
+
+### Cleanup
+
+```typescript
+program.finally(() => {
+	// Runs regardless of success or failure
+	cleanup()
+	metrics.record()
+})
 ```
 
 ## Combining Programs
