@@ -6,7 +6,6 @@ export * from "./program"
 export * from "./provider"
 export * from "./result"
 export * from "./shell"
-export * from "./tag"
 export * from "./token"
 
 export const x = new Shell()

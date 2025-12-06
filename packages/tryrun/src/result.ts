@@ -1,19 +1,11 @@
-import type { Tag } from "./tag"
-import { KeyId, TypeId } from "./tag"
-
 /**
  * Represents a successful `Result<T, E>` containing a `value` of type `T`.
  *
  * @typeParam T - The type of the success value
  */
-export class Success<T> implements Tag<"Result", "Success"> {
-	readonly [TypeId] = "Result"
-	readonly [KeyId] = "Success"
-
-	constructor(readonly value: T) {}
-
-	isSuccess = (): this is Success<T> => true
-	isFailure = (): this is Failure<never> => false
+export type Success<T> = {
+	readonly success: true
+	readonly value: T
 }
 
 /**
@@ -21,14 +13,9 @@ export class Success<T> implements Tag<"Result", "Success"> {
  *
  * @typeParam E - The type of the error
  */
-export class Failure<E> implements Tag<"Result", "Failure"> {
-	readonly [TypeId] = "Result" as const
-	readonly [KeyId] = "Failure" as const
-
-	constructor(readonly error: E) {}
-
-	isSuccess = (): this is Success<never> => false
-	isFailure = (): this is Failure<E> => true
+export type Failure<E> = {
+	readonly success: false
+	readonly error: E
 }
 
 /**
@@ -37,5 +24,37 @@ export class Failure<E> implements Tag<"Result", "Failure"> {
  *
  * @typeParam T - The type of the `value` in a `Success<T>`
  * @typeParam E - The type of the `error` in a `Failure<E>`
+ *
+ * @example
+ * ```ts
+ * const result = await x.run(program)
+ * if (result.success) {
+ *   console.log(result.value)
+ * } else {
+ *   console.error(result.error)
+ * }
+ * ```
  */
 export type Result<T, E> = Success<T> | Failure<E>
+
+/**
+ * Create a successful result.
+ *
+ * @example
+ * ```ts
+ * const result = success(42)
+ * // { success: true, value: 42 }
+ * ```
+ */
+export const success = <T>(value: T): Success<T> => ({ success: true, value })
+
+/**
+ * Create a failed result.
+ *
+ * @example
+ * ```ts
+ * const result = failure(new Error("oops"))
+ * // { success: false, error: Error }
+ * ```
+ */
+export const failure = <E>(error: E): Failure<E> => ({ success: false, error })

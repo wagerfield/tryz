@@ -1,6 +1,3 @@
-import type { Tag } from "./tag"
-import { KeyId, TypeId } from "./tag"
-
 export interface TypedErrorShape {
 	readonly message?: string
 	readonly cause?: unknown
@@ -8,43 +5,41 @@ export interface TypedErrorShape {
 }
 
 /**
- * Creates a TypedError class with a typed key for error identification.
+ * Creates a TypedError class with a typed `name` for error identification.
  *
  * @example
  * ```ts
  * class NotFoundError extends TypedError("NotFound")<{ readonly resource: string }> {}
  *
  * const error = new NotFoundError({ resource: "user", message: "User not found" })
- * // error[KeyId] is typed as "NotFound" (literal, not string)
+ * error.name // "NotFound" (typed as literal)
  *
- * NotFoundError.key // "NotFound" - static access to the key
+ * NotFoundError.name // "NotFound" - static access
  * ```
  */
-export const TypedError = <const Key extends string>(key: Key) =>
-	class TypedError extends Error implements Tag<"Error", Key> {
-		static readonly key = key
-
-		readonly [TypeId] = "Error"
-		readonly [KeyId] = key
+export const TypedError = <const Name extends string>(name: Name) =>
+	class TypedError extends Error {
+		static override readonly name = name
+		override readonly name = name
 
 		constructor(shape: TypedErrorShape = {}) {
 			const { message, cause, ...rest } = shape
 			super(message, { cause })
 			Object.assign(this, rest)
 		}
-	} as TypedErrorConstructor<Key>
+	} as TypedErrorConstructor<Name>
 
-export interface TypedErrorConstructor<Key extends string> {
-	readonly key: Key
+export interface TypedErrorConstructor<Name extends string> {
+	readonly name: Name
 	new <Shape extends Record<string, unknown> = Record<string, unknown>>(
 		args?: { message?: string; cause?: unknown } & Shape,
-	): TypedErrorInstance<Key, Shape>
+	): TypedErrorInstance<Name, Shape>
 }
 
 export type TypedErrorInstance<
-	Key extends string,
+	Name extends string,
 	Shape extends Record<string, unknown>,
-> = Error & Tag<"Error", Key> & Readonly<Shape>
+> = Error & { readonly name: Name } & Readonly<Shape>
 
 export class Failed extends TypedError("Failed") {}
 
@@ -58,3 +53,46 @@ export const defect = (error?: unknown): never => {
 	if (error instanceof Error) throw new Defect({ ...error })
 	throw new Defect({ message: "Unexpected error", cause: error })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Type Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract valid error names from a union of typed errors.
+ *
+ * @example
+ * ```ts
+ * type Names = ErrorName<NotFoundError | TimeoutError>
+ * // "NotFound" | "Timeout"
+ * ```
+ */
+export type ErrorName<E> = E extends { name: infer N extends string }
+	? N
+	: never
+
+/**
+ * Handler object type for catching multiple errors by name.
+ *
+ * @example
+ * ```ts
+ * type Handlers = ErrorHandlers<NotFoundError | TimeoutError>
+ * // {
+ * //   NotFound?: (error: NotFoundError) => unknown
+ * //   Timeout?: (error: TimeoutError) => unknown
+ * // }
+ * ```
+ */
+export type ErrorHandlers<E> = {
+	[N in ErrorName<E>]?: (error: Extract<E, { name: N }>) => unknown
+}
+
+/**
+ * Extract union of return types from error handlers.
+ * The `extends infer U ? U : never` pattern forces TypeScript to expand the type.
+ */
+export type ErrorHandlersReturnType<H> = {
+	[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
+}[keyof H] extends infer U
+	? U
+	: never

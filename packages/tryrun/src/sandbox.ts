@@ -24,6 +24,7 @@ class Baz extends Token("Baz")<{
 
 class NotFoundError extends TypedError("NotFound")<{
 	readonly resource: string
+	readonly id: number
 }> {}
 
 class TimeoutError extends TypedError("Timeout")<{
@@ -70,9 +71,9 @@ const simple = x.try(() =>
 
 // Run simple program (no requirements to satisfy)
 x.run(simple).then((r) => {
-	if (r.isSuccess()) {
+	if (r.success) {
 		console.log(r.value) // "yay"
-	} else if (r.isFailure()) {
+	} else {
 		console.error(r.error) // "nay"
 	}
 })
@@ -86,7 +87,7 @@ x.try({
 	try: () => JSON.parse('{"valid": true}'),
 	catch: (e) => new Error(`Parse failed: ${e}`),
 })
-// → Program<unknown, Error, never>
+// → Program<any, Error, never>
 
 // ==============================================================
 // Program with requirements using then (formerly map)
@@ -119,9 +120,9 @@ const runnable = prog.provide(baseProvider).then((val) => {
 const promise = x.run(runnable)
 
 promise.then((result) => {
-	if (result.isSuccess()) {
+	if (result.success) {
 		console.log(result.value) // "FOO:BAR:BAZ"
-	} else if (result.isFailure()) {
+	} else {
 		console.error(result.error)
 	}
 })
@@ -148,9 +149,9 @@ const s3 = simple.then((val) =>
 // → Program<"s3:yay:FOO", "nay", Foo | Bar | Baz>
 
 x.run(x.all([s1, s2, s3.provide(baseProvider)])).then((result) => {
-	if (result.isSuccess()) {
+	if (result.success) {
 		console.log(result.value)
-	} else if (result.isFailure()) {
+	} else {
 		console.error(result.error)
 	}
 })
@@ -164,27 +165,37 @@ const errorProg = x.try(() =>
 	Math.random() > 0.5
 		? ("success" as const)
 		: Math.random() > 0.5
-			? x.fail(new NotFoundError({ resource: "user" }))
+			? x.fail(new NotFoundError({ resource: "user", id: 123 }))
 			: x.fail(new TimeoutError({ ms: 5000 })),
 )
 // errorProg: Program<"success", NotFoundError | TimeoutError, never>
 
 // Catch all errors
-const e1 = errorProg.catch(() => `recovered` as const)
+const e1 = errorProg.catch((e) => {
+	switch (e.name) {
+		case "NotFound":
+			return `not found resource: ${e.resource} id: ${e.id}` as const
+	}
+	return x.fail(e)
+})
 // → Program<"success" | string, never, never>
 
-// Catch by tag (tag is type-safe: "NotFound" | "Timeout")
-const e2 = errorProg.catch("NotFound", (err) => {
-	// err is typed as NotFoundError
-	console.log(`Resource not found: ${err.resource}`)
-	return null // value recovers to success channel
-})
+// Catch by name (name is type-safe: "NotFound" | "Timeout")
+const e2 = errorProg
+	.catch("NotFound", (err) => {
+		// err is typed as NotFoundError
+		console.log(`Resource not found: ${err.resource}`)
+		return null // value recovers to success channel
+	})
+	.catch("Timeout", (err) => err.ms)
 // → Program<"success" | null, TimeoutError, never>
 
-// Catch multiple by tags (keys are type-safe, handlers receive typed errors)
+// Catch multiple by name (keys are type-safe, handlers receive typed errors)
 const e3 = errorProg.catch({
-	NotFound: (err) => `not found: ${err.resource}` as const,
-	Timeout: (err) => `timed out after ${err.ms}ms` as const,
+	NotFound: (err) => err.resource,
+	Timeout: (err) => err.ms,
+	// NotFound: (err) => `not found: ${err.resource}` as const,
+	// Timeout: (err) => `timed out after ${err.ms}ms` as const,
 })
 // → Program<"success" | string, never, never>
 

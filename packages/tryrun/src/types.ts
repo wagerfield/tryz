@@ -44,22 +44,38 @@ export type TapObserver<T, E> = {
 // Unwrap Utils (for unified map/try that accepts T | Promise<T> | Program<T, E, R>)
 
 /**
+ * Detect if T is the `any` type.
+ * Uses the fact that `any` is the only type where `0 extends 1 & T` is true.
+ */
+type IsAny<T> = 0 extends 1 & T ? true : false
+
+/**
  * Extract the success value from T | Promise<T> | Program<T, E, R>
  */
 export type UnwrapValue<T> =
 	T extends Program<infer U, unknown, unknown> ? U : Awaited<T>
 
 /**
- * Extract the error type from Program, or never for plain values/Promises
+ * Extract the error type from Program, or never for plain values/Promises.
+ * Explicitly handles `any` to return `never` since `any` is not a Program.
  */
 export type UnwrapError<T> =
-	T extends Program<unknown, infer E, unknown> ? E : never
+	IsAny<T> extends true
+		? never
+		: T extends Program<unknown, infer E, unknown>
+			? E
+			: never
 
 /**
- * Extract the requirements from Program, or never for plain values/Promises
+ * Extract the requirements from Program, or never for plain values/Promises.
+ * Explicitly handles `any` to return `never` since `any` is not a Program.
  */
 export type UnwrapRequirements<T> =
-	T extends Program<unknown, unknown, infer R> ? R : never
+	IsAny<T> extends true
+		? never
+		: T extends Program<unknown, unknown, infer R>
+			? R
+			: never
 
 // Program Type Utils
 

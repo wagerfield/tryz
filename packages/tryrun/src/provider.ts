@@ -1,5 +1,5 @@
 import type { Context } from "./context"
-import type { TokenClass, TokenKey, TokenShape, TokenType } from "./token"
+import type { TokenClass, TokenName, TokenShape, TokenType } from "./token"
 
 /**
  * Factory type for creating token implementations.
@@ -10,7 +10,7 @@ export type TokenFactory<C, T extends TokenClass> =
 	| ((ctx: Context<C>) => TokenShape<T>)
 
 /**
- * Internal record of token factories keyed by token key.
+ * Internal record of token factories keyed by token name.
  */
 export type FactoryRecord = Map<string, TokenFactory<unknown, TokenClass>>
 
@@ -50,7 +50,7 @@ export class Provider<out C = never> {
 		factory: TokenFactory<C, T>,
 	): Provider<C | TokenType<T>> {
 		const factories = new Map(this._factories)
-		factories.set(token.key, factory as TokenFactory<unknown, TokenClass>)
+		factories.set(token.name, factory as TokenFactory<unknown, TokenClass>)
 		return new Provider(factories)
 	}
 
@@ -60,12 +60,12 @@ export class Provider<out C = never> {
 	 * @param token - The token class to retrieve
 	 * @returns The factory for the token
 	 */
-	get<T extends TokenClass & { key: TokenKey<C> }>(
+	get<T extends TokenClass & { name: TokenName<C> }>(
 		token: T,
 	): TokenFactory<C, T> {
-		const factory = this._factories.get(token.key)
+		const factory = this._factories.get(token.name)
 		if (!factory) {
-			throw new Error(`Token "${token.key}" not provided`)
+			throw new Error(`Token "${token.name}" not provided`)
 		}
 		return factory as TokenFactory<C, T>
 	}
@@ -76,13 +76,13 @@ export class Provider<out C = never> {
 	 * @param tokens - The token classes to include
 	 * @returns A new Provider with only the specified tokens
 	 */
-	pick<T extends TokenClass & { key: TokenKey<C> }>(
+	pick<T extends TokenClass & { name: TokenName<C> }>(
 		...tokens: T[]
 	): Provider<TokenType<T>> {
 		const factories = new Map<string, TokenFactory<unknown, TokenClass>>()
 		for (const token of tokens) {
-			const factory = this._factories.get(token.key)
-			if (factory) factories.set(token.key, factory)
+			const factory = this._factories.get(token.name)
+			if (factory) factories.set(token.name, factory)
 		}
 		return new Provider(factories)
 	}
@@ -93,12 +93,12 @@ export class Provider<out C = never> {
 	 * @param tokens - The token classes to exclude
 	 * @returns A new Provider without the specified tokens
 	 */
-	omit<T extends TokenClass & { key: TokenKey<C> }>(
+	omit<T extends TokenClass & { name: TokenName<C> }>(
 		...tokens: T[]
 	): Provider<Exclude<C, TokenType<T>>> {
 		const factories = new Map(this._factories)
 		for (const token of tokens) {
-			factories.delete(token.key)
+			factories.delete(token.name)
 		}
 		return new Provider(factories)
 	}

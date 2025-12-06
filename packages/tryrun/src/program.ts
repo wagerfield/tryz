@@ -1,5 +1,9 @@
+import type {
+	ErrorHandlers,
+	ErrorHandlersReturnType,
+	ErrorName,
+} from "./errors"
 import type { Provider, TokenFactory } from "./provider"
-import type { KeyId } from "./tag"
 import type { TokenClass, TokenType } from "./token"
 import type {
 	RetryOptions,
@@ -8,22 +12,6 @@ import type {
 	UnwrapRequirements,
 	UnwrapValue,
 } from "./types"
-
-/**
- * Extracts the KeyId values from a union of tagged errors.
- * Only extracts keys from types that have a [KeyId] property.
- */
-type ErrorKey<E> = E extends { [KeyId]: infer K extends string } ? K : never
-
-/**
- * Extracts a union of all return types from a handlers object.
- * The `extends infer U ? U : never` pattern forces TypeScript to expand the type.
- */
-type HandlersReturn<H> = {
-	[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
-}[keyof H] extends infer U
-	? U
-	: never
 
 /**
  * A program that produces a value of type T, may fail with error E,
@@ -125,10 +113,10 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	 * // Catch all errors
 	 * program.catch(err => defaultValue)
 	 *
-	 * // Catch by tag
+	 * // Catch by name
 	 * program.catch("NotFound", err => null)
 	 *
-	 * // Catch multiple by tags
+	 * // Catch multiple by name
 	 * program.catch({
 	 *   NotFound: err => null,
 	 *   Timeout: err => x.fail(new RetryError())
@@ -139,31 +127,27 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 		fn: (error: E) => F,
 	): Program<T | UnwrapValue<F>, UnwrapError<F>, R | UnwrapRequirements<F>>
 
-	catch<Tag extends ErrorKey<E>, F>(
-		tag: Tag,
-		fn: (error: Extract<E, { [KeyId]: Tag }>) => F,
+	catch<Name extends ErrorName<E>, F>(
+		name: Name,
+		fn: (error: Extract<E, { name: Name }>) => F,
 	): Program<
 		T | UnwrapValue<F>,
-		Exclude<E, { [KeyId]: Tag }> | UnwrapError<F>,
+		Exclude<E, { name: Name }> | UnwrapError<F>,
 		R | UnwrapRequirements<F>
 	>
 
-	catch<
-		Handlers extends {
-			[K in ErrorKey<E>]?: (error: Extract<E, { [KeyId]: K }>) => unknown
-		},
-	>(
+	catch<Handlers extends ErrorHandlers<E>>(
 		handlers: Handlers,
 	): Program<
-		T | UnwrapValue<HandlersReturn<Handlers>>,
-		| Exclude<E, { [KeyId]: keyof Handlers }>
-		| UnwrapError<HandlersReturn<Handlers>>,
-		R | UnwrapRequirements<HandlersReturn<Handlers>>
+		T | UnwrapValue<ErrorHandlersReturnType<Handlers>>,
+		| Exclude<E, { name: keyof Handlers }>
+		| UnwrapError<ErrorHandlersReturnType<Handlers>>,
+		R | UnwrapRequirements<ErrorHandlersReturnType<Handlers>>
 	>
 
 	catch<F>(
-		_fnOrTagOrHandlers: any,
-		_fn?: any,
+		_fnOrNameOrHandlers: unknown,
+		_fn?: unknown,
 	): Program<T | UnwrapValue<F>, unknown, R | UnwrapRequirements<F>> {
 		throw new Error("Program.catch not implemented")
 	}
