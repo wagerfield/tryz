@@ -6,6 +6,12 @@
 declare const TokenNameBrand: unique symbol
 
 /**
+ * Phantom brand symbol for TokenClass interface.
+ * Prevents non-token classes from accidentally matching the TokenClass type.
+ */
+declare const TokenClassBrand: unique symbol
+
+/**
  * Creates a Token class with a typed `name` for dependency injection.
  *
  * The token name is stored as a static property on the class for runtime
@@ -45,6 +51,7 @@ export interface TokenConstructor<Name extends string> {
 }
 
 export interface TokenClass {
+	readonly [TokenClassBrand]?: unknown
 	readonly name: string
 	new (shape: never): object
 }

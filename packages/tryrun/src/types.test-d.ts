@@ -2,12 +2,12 @@ import { expectTypeOf, test } from "vitest"
 import type { Program } from "./program"
 import type { Result } from "./result"
 import type {
-	ExtractProgramErrors,
-	ExtractProgramRequirements,
-	ExtractProgramResult,
-	ExtractProgramTypes,
-	ExtractProgramValues,
+	ProgramError,
+	ProgramRequirements,
+	ProgramResult,
 	ProgramResultTuple,
+	ProgramTypes,
+	ProgramValue,
 	ProgramValuesTuple,
 	UnwrapError,
 	UnwrapRequirements,
@@ -101,39 +101,39 @@ test("UnwrapRequirements returns never for any (not unknown)", () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ExtractProgramTypes
+// ProgramTypes
 // ─────────────────────────────────────────────────────────────────────────────
 
-test("ExtractProgramTypes extracts [T, E, R] tuple", () => {
+test("ProgramTypes extracts [T, E, R] tuple", () => {
 	type FooToken = { readonly foo: string }
-	expectTypeOf<
-		ExtractProgramTypes<Program<string, Error, FooToken>>
-	>().toEqualTypeOf<[string, Error, FooToken]>()
+	expectTypeOf<ProgramTypes<Program<string, Error, FooToken>>>().toEqualTypeOf<
+		[string, Error, FooToken]
+	>()
 })
 
-test("ExtractProgramValues extracts value type", () => {
+test("ProgramValue extracts value type", () => {
 	expectTypeOf<
-		ExtractProgramValues<Program<string, Error, never>>
+		ProgramValue<Program<string, Error, never>>
 	>().toEqualTypeOf<string>()
 })
 
-test("ExtractProgramErrors extracts error type", () => {
+test("ProgramError extracts error type", () => {
 	expectTypeOf<
-		ExtractProgramErrors<Program<string, Error, never>>
+		ProgramError<Program<string, Error, never>>
 	>().toEqualTypeOf<Error>()
 })
 
-test("ExtractProgramRequirements extracts requirements type", () => {
+test("ProgramRequirements extracts requirements type", () => {
 	type FooToken = { readonly foo: string }
 	expectTypeOf<
-		ExtractProgramRequirements<Program<string, Error, FooToken>>
+		ProgramRequirements<Program<string, Error, FooToken>>
 	>().toEqualTypeOf<FooToken>()
 })
 
-test("ExtractProgramResult extracts Result type", () => {
-	expectTypeOf<
-		ExtractProgramResult<Program<string, Error, never>>
-	>().toEqualTypeOf<Result<string, Error>>()
+test("ProgramResult extracts Result type", () => {
+	expectTypeOf<ProgramResult<Program<string, Error, never>>>().toEqualTypeOf<
+		Result<string, Error>
+	>()
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,3 +1,5 @@
+import type { Simplify } from "./types"
+
 export interface TypedErrorShape {
 	readonly message?: string
 	readonly cause?: unknown
@@ -99,10 +101,9 @@ export type ErrorHandlers<E> = {
 
 /**
  * Extract union of return types from error handlers.
- * The `extends infer U ? U : never` pattern forces TypeScript to expand the type.
  */
-export type ErrorHandlersReturnType<H> = {
-	[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
-}[keyof H] extends infer U
-	? U
-	: never
+export type ErrorHandlersReturnType<H> = Simplify<
+	{
+		[K in keyof H]: H[K] extends (...args: never[]) => infer R ? R : never
+	}[keyof H]
+>

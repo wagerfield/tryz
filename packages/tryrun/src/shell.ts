@@ -5,13 +5,13 @@ import type { Result } from "./result"
 import type { TokenClass, TokenType } from "./token"
 import type {
 	ConcurrencyOptions,
-	ExtractProgramTupleErrors,
-	ExtractProgramTupleRequirements,
-	ExtractProgramTupleValues,
 	Middleware,
 	ProgramValuesTuple,
 	RunOptions,
 	TryOptions,
+	UnionProgramErrors,
+	UnionProgramRequirements,
+	UnionProgramValues,
 	UnwrapError,
 	UnwrapRequirements,
 	UnwrapValue,
@@ -141,8 +141,8 @@ export class Shell<R = never> {
 		_options?: ConcurrencyOptions,
 	): Program<
 		ProgramValuesTuple<T>,
-		ExtractProgramTupleErrors<T>,
-		R | ExtractProgramTupleRequirements<T>
+		UnionProgramErrors<T>,
+		R | UnionProgramRequirements<T>
 	> {
 		throw new Error("Shell.all not implemented")
 	}
@@ -153,9 +153,9 @@ export class Shell<R = never> {
 	any<const T extends readonly Program[]>(
 		_programs: T,
 	): Program<
-		ExtractProgramTupleValues<T>,
-		ExtractProgramTupleErrors<T>,
-		R | ExtractProgramTupleRequirements<T>
+		UnionProgramValues<T>,
+		UnionProgramErrors<T>,
+		R | UnionProgramRequirements<T>
 	> {
 		throw new Error("Shell.any not implemented")
 	}
@@ -166,9 +166,9 @@ export class Shell<R = never> {
 	race<const T extends readonly Program[]>(
 		_programs: T,
 	): Program<
-		ExtractProgramTupleValues<T>,
-		ExtractProgramTupleErrors<T>,
-		R | ExtractProgramTupleRequirements<T>
+		UnionProgramValues<T>,
+		UnionProgramErrors<T>,
+		R | UnionProgramRequirements<T>
 	> {
 		throw new Error("Shell.race not implemented")
 	}
