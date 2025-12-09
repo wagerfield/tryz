@@ -1,4 +1,4 @@
-import type { Provider, TokenFactory } from "./provider"
+import type { Provider } from "./provider"
 import type { TokenClass, TokenName, TokenType } from "./token"
 
 /**
@@ -27,18 +27,7 @@ export type ContextMap<Instances> = {
 export class Context<C = never> {
 	readonly signal: AbortSignal
 
-	/** @internal */
-	private readonly _provider: Provider<C>
-
-	/** @internal */
-	private readonly _cache: Map<string, unknown> = new Map()
-
-	/** @internal */
-	private readonly _resolving: Set<string> = new Set()
-
-	/** @internal */
-	constructor(provider: Provider<C>, signal?: AbortSignal) {
-		this._provider = provider
+	constructor(_provider: Provider<C>, signal?: AbortSignal) {
 		this.signal = signal ?? new AbortController().signal
 	}
 
@@ -55,38 +44,7 @@ export class Context<C = never> {
 	 * const db = ctx.get(DatabaseService)
 	 * ```
 	 */
-	get<T extends TokenClass & { name: TokenName<C> }>(token: T): TokenType<T> {
-		const name = token.name
-
-		// Return cached instance if available
-		if (this._cache.has(name)) {
-			return this._cache.get(name) as TokenType<T>
-		}
-
-		// Detect circular dependencies
-		if (this._resolving.has(name)) {
-			throw new Error(`Circular dependency detected: "${name}"`)
-		}
-
-		// Mark as resolving
-		this._resolving.add(name)
-
-		try {
-			const factory = this._provider.get(token)
-			const instance = this._resolve(factory)
-			this._cache.set(name, instance)
-			return instance as TokenType<T>
-		} finally {
-			this._resolving.delete(name)
-		}
-	}
-
-	/** @internal */
-	private _resolve(factory: TokenFactory<C, TokenClass>): unknown {
-		if (typeof factory === "function") {
-			// Safe cast: the context has all tokens from the provider
-			return factory(this as any)
-		}
-		return factory
+	get<T extends TokenClass & { name: TokenName<C> }>(_token: T): TokenType<T> {
+		throw new Error("Context.get not implemented")
 	}
 }

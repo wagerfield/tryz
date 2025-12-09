@@ -46,12 +46,10 @@ export class Provider<out C = never> {
 	 * @param factory - The implementation (value or factory function)
 	 */
 	provide<T extends TokenClass>(
-		token: T,
-		factory: TokenFactory<C, T>,
+		_token: T,
+		_factory: TokenFactory<C, T>,
 	): Provider<C | TokenType<T>> {
-		const factories = new Map(this._factories)
-		factories.set(token.name, factory as TokenFactory<unknown, TokenClass>)
-		return new Provider(factories)
+		throw new Error("Provider.provide not implemented")
 	}
 
 	/**
@@ -61,13 +59,9 @@ export class Provider<out C = never> {
 	 * @returns The factory for the token
 	 */
 	get<T extends TokenClass & { name: TokenName<C> }>(
-		token: T,
+		_token: T,
 	): TokenFactory<C, T> {
-		const factory = this._factories.get(token.name)
-		if (!factory) {
-			throw new Error(`Token "${token.name}" not provided`)
-		}
-		return factory as TokenFactory<C, T>
+		throw new Error("Provider.get not implemented")
 	}
 
 	/**
@@ -77,14 +71,9 @@ export class Provider<out C = never> {
 	 * @returns A new Provider with only the specified tokens
 	 */
 	pick<T extends TokenClass & { name: TokenName<C> }>(
-		...tokens: T[]
+		..._tokens: T[]
 	): Provider<TokenType<T>> {
-		const factories = new Map<string, TokenFactory<unknown, TokenClass>>()
-		for (const token of tokens) {
-			const factory = this._factories.get(token.name)
-			if (factory) factories.set(token.name, factory)
-		}
-		return new Provider(factories)
+		throw new Error("Provider.pick not implemented")
 	}
 
 	/**
@@ -94,13 +83,9 @@ export class Provider<out C = never> {
 	 * @returns A new Provider without the specified tokens
 	 */
 	omit<T extends TokenClass & { name: TokenName<C> }>(
-		...tokens: T[]
+		..._tokens: T[]
 	): Provider<Exclude<C, TokenType<T>>> {
-		const factories = new Map(this._factories)
-		for (const token of tokens) {
-			factories.delete(token.name)
-		}
-		return new Provider(factories)
+		throw new Error("Provider.omit not implemented")
 	}
 }
 

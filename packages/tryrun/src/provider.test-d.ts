@@ -94,7 +94,7 @@ test("Provider.pick() with single token", () => {
 		.provide(BarService, { bar: 42 })
 
 	const picked = full.pick(FooService)
-	expectTypeOf(picked).toMatchTypeOf<Provider<FooInstance>>()
+	expectTypeOf(picked).toEqualTypeOf<Provider<FooInstance>>()
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,12 +107,12 @@ test("Provider.omit() excludes specified token", () => {
 		.provide(BarService, { bar: 42 })
 
 	const omitted = full.omit(BarService)
-	expectTypeOf(omitted).toMatchTypeOf<Provider<FooInstance>>()
+	expectTypeOf(omitted).toEqualTypeOf<Provider<FooInstance>>()
 })
 
 test("Provider.omit() all tokens results in Provider<never>", () => {
 	const full = new Provider().provide(FooService, { foo: "hello" })
 
 	const omitted = full.omit(FooService)
-	expectTypeOf(omitted).toMatchTypeOf<Provider<never>>()
+	expectTypeOf(omitted).toEqualTypeOf<Provider<never>>()
 })

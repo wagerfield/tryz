@@ -50,8 +50,18 @@ export const fail = (): never => {
 export class Defect extends TypedError("Defect") {}
 
 export const defect = (error?: unknown): never => {
-	if (error instanceof Error) throw new Defect({ ...error })
-	throw new Defect({ message: "Unexpected error", cause: error })
+	if (error instanceof Error) {
+		throw new Defect({
+			message: error.message,
+			stack: error.stack,
+			cause: error,
+		})
+	}
+
+	throw new Defect({
+		message: "Unexpected error",
+		cause: error,
+	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
