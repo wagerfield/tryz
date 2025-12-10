@@ -1,13 +1,9 @@
-import { expectTypeOf, test } from "vitest"
+import { describe, expectTypeOf, test } from "vitest"
 import { TypedError } from "./errors"
 import type { Program } from "./program"
 import type { Result } from "./result"
 import { Shell } from "./shell"
 import { Token, type TokenType } from "./token"
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Test Tokens and Errors
-// ─────────────────────────────────────────────────────────────────────────────
 
 class FooService extends Token("FooService")<{
 	readonly foo: string
@@ -33,305 +29,302 @@ class TimeoutError extends TypedError("Timeout")<{
 	readonly ms: number
 }> {}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.require()
-// ─────────────────────────────────────────────────────────────────────────────
+describe("Shell.require()", () => {
+	test("accumulates token requirements", () => {
+		const shell = new Shell()
+		expectTypeOf(shell).toEqualTypeOf<Shell<never>>()
 
-test("Shell.require() accumulates token requirements", () => {
-	const shell = new Shell()
-	expectTypeOf(shell).toEqualTypeOf<Shell<never>>()
+		const withFoo = shell.require(FooService)
+		expectTypeOf(withFoo).toEqualTypeOf<Shell<FooInstance>>()
 
-	const withFoo = shell.require(FooService)
-	expectTypeOf(withFoo).toEqualTypeOf<Shell<FooInstance>>()
-
-	const withFooBar = withFoo.require(BarService)
-	expectTypeOf(withFooBar).toEqualTypeOf<Shell<FooInstance | BarInstance>>()
-})
-
-test("Shell.require() with multiple tokens at once", () => {
-	const shell = new Shell().require(FooService, BarService, BazService)
-	expectTypeOf(shell).toEqualTypeOf<
-		Shell<FooInstance | BarInstance | BazInstance>
-	>()
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.try() with function
-// ─────────────────────────────────────────────────────────────────────────────
-
-test("Shell.try(fn) infers Program types from callback return", () => {
-	const shell = new Shell()
-
-	const prog = shell.try(() => "hello")
-	expectTypeOf(prog).toEqualTypeOf<Program<string, never, never>>()
-})
-
-test("Shell.try(fn) infers requirements from shell", () => {
-	const shell = new Shell().require(FooService, BarService)
-
-	const prog = shell.try((ctx) => {
-		expectTypeOf(ctx.get(FooService).foo).toEqualTypeOf<string>()
-		return "hello"
+		const withFooBar = withFoo.require(BarService)
+		expectTypeOf(withFooBar).toEqualTypeOf<Shell<FooInstance | BarInstance>>()
 	})
 
-	expectTypeOf(prog).toEqualTypeOf<
-		Program<string, never, FooInstance | BarInstance>
-	>()
+	test("with multiple tokens at once", () => {
+		const shell = new Shell().require(FooService, BarService, BazService)
+		expectTypeOf(shell).toEqualTypeOf<
+			Shell<FooInstance | BarInstance | BazInstance>
+		>()
+	})
 })
 
-test("Shell.try(fn) with Promise return unwraps Promise", () => {
-	const shell = new Shell()
+describe("Shell.try()", () => {
+	describe("with (ctx) => T function", () => {
+		test("infers Program types from callback return", () => {
+			const shell = new Shell()
+			const program = shell.try(() => "hello")
 
-	const prog = shell.try(() => Promise.resolve(42))
-	expectTypeOf(prog).toEqualTypeOf<Program<number, never, never>>()
-})
+			expectTypeOf(program).toEqualTypeOf<Program<string, never, never>>()
+		})
 
-test("Shell.try(fn) with Program return accumulates types", () => {
-	const shell = new Shell().require(FooService)
-	const inner = {} as Program<number, NotFoundError, BarInstance>
+		test("infers requirements from shell", () => {
+			const shell = new Shell().require(FooService, BarService)
+			const program = shell.try((ctx) => {
+				expectTypeOf(ctx.get(FooService).foo).toEqualTypeOf<string>()
+				return "hello"
+			})
 
-	const prog = shell.try(() => inner)
-	expectTypeOf(prog).toEqualTypeOf<
-		Program<number, NotFoundError, FooInstance | BarInstance>
-	>()
-})
+			expectTypeOf(program).toEqualTypeOf<
+				Program<string, never, FooInstance | BarInstance>
+			>()
+		})
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.try() with { try, catch } options
-// ─────────────────────────────────────────────────────────────────────────────
+		test("with Promise return unwraps Promise", () => {
+			const shell = new Shell()
+			const program = shell.try(() => Promise.resolve(42))
 
-test("Shell.try({ try, catch }) infers error from catch handler", () => {
-	const shell = new Shell()
+			expectTypeOf(program).toEqualTypeOf<Program<number, never, never>>()
+		})
 
-	const prog = shell.try({
-		try: () => JSON.parse("{}"),
-		catch: (e) => new Error(`Parse failed: ${e}`),
+		test("with Program return accumulates types", () => {
+			const shell = new Shell().require(FooService)
+			const inner = {} as Program<number, NotFoundError, BarInstance>
+			const program = shell.try(() => inner)
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<number, NotFoundError, FooInstance | BarInstance>
+			>()
+		})
 	})
 
-	// JSON.parse returns any, catch returns Error
-	expectTypeOf(prog).toMatchTypeOf<Program<any, Error, never>>()
+	describe("with { try, catch } options", () => {
+		test("infers error from catch handler", () => {
+			const shell = new Shell()
+			const program = shell.try({
+				try: () => JSON.parse("{}"),
+				catch: (e) => new Error(`Parse failed: ${e}`),
+			})
+
+			// JSON.parse returns any, catch returns Error
+			expectTypeOf(program).toMatchTypeOf<Program<any, Error, never>>()
+		})
+
+		test("with typed error", () => {
+			const shell = new Shell()
+			const program = shell.try({
+				try: () => "result" as const,
+				catch: () => new NotFoundError({ resource: "config" }),
+			})
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<"result", NotFoundError, never>
+			>()
+		})
+
+		test("with requirements", () => {
+			const shell = new Shell().require(FooService)
+			const program = shell.try({
+				try: (ctx) => ctx.get(FooService).foo,
+				catch: () => new TimeoutError({ ms: 1000 }),
+			})
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<string, TimeoutError, FooInstance>
+			>()
+		})
+	})
 })
 
-test("Shell.try({ try, catch }) with typed error", () => {
-	const shell = new Shell()
+describe("Shell.fail()", () => {
+	test("returns Program<never, E, never>", () => {
+		const shell = new Shell()
+		const program = shell.fail(new NotFoundError({ resource: "user" }))
 
-	const prog = shell.try({
-		try: () => "result" as const,
-		catch: () => new NotFoundError({ resource: "config" }),
+		expectTypeOf(program).toEqualTypeOf<Program<never, NotFoundError, never>>()
 	})
 
-	expectTypeOf(prog).toEqualTypeOf<Program<"result", NotFoundError, never>>()
+	test("with string error", () => {
+		const shell = new Shell()
+		const program = shell.fail("something went wrong")
+
+		expectTypeOf(program).toEqualTypeOf<Program<never, string, never>>()
+	})
 })
 
-test("Shell.try({ try, catch }) with requirements", () => {
-	const shell = new Shell().require(FooService)
+describe("Shell.all()", () => {
+	test("produces tuple of values", () => {
+		const shell = new Shell()
 
-	const prog = shell.try({
-		try: (ctx) => ctx.get(FooService).foo,
-		catch: () => new TimeoutError({ ms: 1000 }),
+		const p1 = {} as Program<string, never, never>
+		const p2 = {} as Program<number, never, never>
+		const p3 = {} as Program<boolean, never, never>
+
+		const combined = shell.all([p1, p2, p3])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<[string, number, boolean], never, never>
+		>()
 	})
 
-	expectTypeOf(prog).toEqualTypeOf<Program<string, TimeoutError, FooInstance>>()
+	test("combines errors into union", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, NotFoundError, never>
+		const p2 = {} as Program<number, TimeoutError, never>
+
+		const combined = shell.all([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<[string, number], NotFoundError | TimeoutError, never>
+		>()
+	})
+
+	test("with runnable programs produces tuple", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, Error, never>
+		const p2 = {} as Program<number, TypeError, never>
+
+		const combined = shell.all([p1, p2])
+
+		// Shell.all() produces a tuple of values
+		expectTypeOf(combined).toMatchTypeOf<
+			Program<[string, number], Error | TypeError, never>
+		>()
+	})
+
+	test("accepts programs with requirements and combines them", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, NotFoundError, FooInstance>
+		const p2 = {} as Program<number, TimeoutError, BarInstance>
+		const p3 = {} as Program<boolean, never, BazInstance>
+
+		const combined = shell.all([p1, p2, p3])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				[string, number, boolean],
+				NotFoundError | TimeoutError,
+				FooInstance | BarInstance | BazInstance
+			>
+		>()
+	})
+
+	test("accepts mixed programs with and without requirements", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, never, never>
+		const p2 = {} as Program<number, NotFoundError, FooInstance>
+
+		const combined = shell.all([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<[string, number], NotFoundError, FooInstance>
+		>()
+	})
 })
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.fail()
-// ─────────────────────────────────────────────────────────────────────────────
+describe("Shell.any()", () => {
+	test("returns union of values", () => {
+		const shell = new Shell()
 
-test("Shell.fail() returns Program<never, E, never>", () => {
-	const shell = new Shell()
+		const p1 = {} as Program<string, NotFoundError, never>
+		const p2 = {} as Program<number, TimeoutError, never>
 
-	const prog = shell.fail(new NotFoundError({ resource: "user" }))
-	expectTypeOf(prog).toEqualTypeOf<Program<never, NotFoundError, never>>()
+		const combined = shell.any([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<string | number, NotFoundError | TimeoutError, never>
+		>()
+	})
+
+	test("accepts programs with requirements and combines them", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, NotFoundError, FooInstance>
+		const p2 = {} as Program<number, TimeoutError, BarInstance>
+
+		const combined = shell.any([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				string | number,
+				NotFoundError | TimeoutError,
+				FooInstance | BarInstance
+			>
+		>()
+	})
 })
 
-test("Shell.fail() with string error", () => {
-	const shell = new Shell()
+describe("Shell.race()", () => {
+	test("returns union of values", () => {
+		const shell = new Shell()
 
-	const prog = shell.fail("something went wrong")
-	expectTypeOf(prog).toEqualTypeOf<Program<never, string, never>>()
+		const p1 = {} as Program<string, NotFoundError, never>
+		const p2 = {} as Program<number, TimeoutError, never>
+
+		const combined = shell.race([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<string | number, NotFoundError | TimeoutError, never>
+		>()
+	})
+
+	test("accepts programs with requirements and combines them", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, NotFoundError, FooInstance>
+		const p2 = {} as Program<number, TimeoutError, BarInstance>
+
+		const combined = shell.race([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				string | number,
+				NotFoundError | TimeoutError,
+				FooInstance | BarInstance
+			>
+		>()
+	})
 })
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.all()
-// ─────────────────────────────────────────────────────────────────────────────
+describe("Shell.run()", () => {
+	test("only accepts Program with never requirements", () => {
+		const shell = new Shell()
 
-test("Shell.all() produces tuple of values", () => {
-	const shell = new Shell()
+		const runnable = {} as Program<string, Error, never>
+		const notRunnable = {} as Program<string, Error, FooInstance>
 
-	const p1 = {} as Program<string, never, never>
-	const p2 = {} as Program<number, never, never>
-	const p3 = {} as Program<boolean, never, never>
+		// This should work
+		shell.run(runnable)
 
-	const combined = shell.all([p1, p2, p3])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<[string, number, boolean], never, never>
-	>()
+		// This should be a type error
+		// @ts-expect-error - Program has unfulfilled requirements
+		shell.run(notRunnable)
+	})
+
+	test("returns Promise<Result<T, E>> by default", () => {
+		const shell = new Shell()
+		const program = {} as Program<string, Error, never>
+		const result = shell.run(program)
+
+		expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
+	})
+
+	test("with mode: unwrap returns Promise<T>", () => {
+		const shell = new Shell()
+		const program = {} as Program<string, Error, never>
+		const result = shell.run(program, { mode: "unwrap" })
+
+		expectTypeOf(result).toEqualTypeOf<Promise<string>>()
+	})
+
+	test("with mode: result returns Promise<Result<T, E>>", () => {
+		const shell = new Shell()
+		const program = {} as Program<string, Error, never>
+		const result = shell.run(program, { mode: "result" })
+
+		expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
+	})
 })
 
-test("Shell.all() combines errors into union", () => {
-	const shell = new Shell()
+describe("Shell.provide()", () => {
+	test("creates Provider with token", () => {
+		const shell = new Shell()
+		const provider = shell.provide(FooService, { foo: "hello" })
 
-	const p1 = {} as Program<string, NotFoundError, never>
-	const p2 = {} as Program<number, TimeoutError, never>
-
-	const combined = shell.all([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<[string, number], NotFoundError | TimeoutError, never>
-	>()
-})
-
-test("Shell.all() with runnable programs produces tuple", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, Error, never>
-	const p2 = {} as Program<number, TypeError, never>
-
-	const combined = shell.all([p1, p2])
-	// Shell.all() produces a tuple of values
-	expectTypeOf(combined).toMatchTypeOf<
-		Program<[string, number], Error | TypeError, never>
-	>()
-})
-
-test("Shell.all() accepts programs with requirements and combines them", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, NotFoundError, FooInstance>
-	const p2 = {} as Program<number, TimeoutError, BarInstance>
-	const p3 = {} as Program<boolean, never, BazInstance>
-
-	const combined = shell.all([p1, p2, p3])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<
-			[string, number, boolean],
-			NotFoundError | TimeoutError,
-			FooInstance | BarInstance | BazInstance
-		>
-	>()
-})
-
-test("Shell.all() accepts mixed programs with and without requirements", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, never, never>
-	const p2 = {} as Program<number, NotFoundError, FooInstance>
-
-	const combined = shell.all([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<[string, number], NotFoundError, FooInstance>
-	>()
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.any() and Shell.race()
-// ─────────────────────────────────────────────────────────────────────────────
-
-test("Shell.any() returns union of values", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, NotFoundError, never>
-	const p2 = {} as Program<number, TimeoutError, never>
-
-	const combined = shell.any([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<string | number, NotFoundError | TimeoutError, never>
-	>()
-})
-
-test("Shell.race() returns union of values", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, NotFoundError, never>
-	const p2 = {} as Program<number, TimeoutError, never>
-
-	const combined = shell.race([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<string | number, NotFoundError | TimeoutError, never>
-	>()
-})
-
-test("Shell.any() accepts programs with requirements and combines them", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, NotFoundError, FooInstance>
-	const p2 = {} as Program<number, TimeoutError, BarInstance>
-
-	const combined = shell.any([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<
-			string | number,
-			NotFoundError | TimeoutError,
-			FooInstance | BarInstance
-		>
-	>()
-})
-
-test("Shell.race() accepts programs with requirements and combines them", () => {
-	const shell = new Shell()
-
-	const p1 = {} as Program<string, NotFoundError, FooInstance>
-	const p2 = {} as Program<number, TimeoutError, BarInstance>
-
-	const combined = shell.race([p1, p2])
-	expectTypeOf(combined).toEqualTypeOf<
-		Program<
-			string | number,
-			NotFoundError | TimeoutError,
-			FooInstance | BarInstance
-		>
-	>()
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.run()
-// ─────────────────────────────────────────────────────────────────────────────
-
-test("Shell.run() only accepts Program with never requirements", () => {
-	const shell = new Shell()
-
-	const runnable = {} as Program<string, Error, never>
-	const notRunnable = {} as Program<string, Error, FooInstance>
-
-	// This should work
-	shell.run(runnable)
-
-	// This should be a type error
-	// @ts-expect-error - Program has unfulfilled requirements
-	shell.run(notRunnable)
-})
-
-test("Shell.run() returns Promise<Result<T, E>> by default", () => {
-	const shell = new Shell()
-	const prog = {} as Program<string, Error, never>
-
-	const result = shell.run(prog)
-	expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
-})
-
-test("Shell.run() with mode: unwrap returns Promise<T>", () => {
-	const shell = new Shell()
-	const prog = {} as Program<string, Error, never>
-
-	const result = shell.run(prog, { mode: "unwrap" })
-	expectTypeOf(result).toEqualTypeOf<Promise<string>>()
-})
-
-test("Shell.run() with mode: result returns Promise<Result<T, E>>", () => {
-	const shell = new Shell()
-	const prog = {} as Program<string, Error, never>
-
-	const result = shell.run(prog, { mode: "result" })
-	expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell.provide()
-// ─────────────────────────────────────────────────────────────────────────────
-
-test("Shell.provide() creates Provider with token", () => {
-	const shell = new Shell()
-
-	const provider = shell.provide(FooService, { foo: "hello" })
-	expectTypeOf(provider).toMatchTypeOf<{ provide: Function }>()
+		expectTypeOf(provider).toMatchTypeOf<{ provide: Function }>()
+	})
 })
