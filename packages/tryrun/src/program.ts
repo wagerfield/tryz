@@ -7,7 +7,7 @@ import type { Provider, TokenFactory } from "./provider"
 import type { TokenClass, TokenType } from "./token"
 import type {
 	RetryOptions,
-	TapObserver,
+	TapOptions,
 	UnwrapError,
 	UnwrapRequirements,
 	UnwrapValue,
@@ -45,16 +45,18 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	private constructor() {}
 
 	/**
-	 * Satisfy requirements with a Provider or direct Token + Factory.
-	 * Removes provided tokens from R.
+	 * Satisfy requirements with a `Provider` or token and factory.
+	 * Returns a new `Program` with the provided tokens removed from requirements.
 	 *
 	 * @example
 	 * ```ts
-	 * // With Provider
-	 * const runnable = prog.provide(myProvider)
+	 * // Provide with a Provider
+	 * const runnable = program.provide(appProvider)
+	 * // runnable: Program<T, E, Exclude<R, ProvidedTokens>>
 	 *
-	 * // Direct Token + Factory (shorthand)
-	 * const runnable = prog.provide(FooService, { foo: "FOO" })
+	 * // Provide a single token with a factory
+	 * const runnable = program.provide(Config, { apiUrl: "https://..." })
+	 * // runnable: Program<T, E, Exclude<R, Config>>
 	 * ```
 	 */
 	provide<C>(_provider: Provider<C>): Program<T, E, Exclude<R, C>>
@@ -72,16 +74,18 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	}
 
 	/**
-	 * Transform the success value.
-	 * Can return a plain value, Promise, or another Program.
+	 * Transform the success value of a `Program`.
+	 * Returns a new `Program` with the transformed value.
+	 * Can return a value, `Promise`, or `Program`.
 	 *
 	 * @example
 	 * ```ts
-	 * program
-	 *   .then(x => x * 2)                      // sync transform
-	 *   .then(x => fetchUser(x.id))            // returns Promise
-	 *   .then(x => validateUser(x))            // returns Program
-	 *   .then(x => x.name)                     // back to sync
+	 * const userName = program
+	 *   .then((value) => value * 2)           // transform value
+	 *   .then((value) => fetchUser(value.id)) // return Promise
+	 *   .then((user) => validateUser(user))   // return Program
+	 *   .then((user) => user.name)            // extract property
+	 * // userName: Program<string, E, R>
 	 * ```
 	 */
 	then<U>(
@@ -91,27 +95,46 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	}
 
 	/**
-	 * Perform side effects without changing the result.
+	 * Perform side effects without changing the `Program` value.
+	 * Returns the same value but may introduce errors or requirements.
+	 * Can return `void`, `Promise`, or `Program` (value is discarded).
 	 *
 	 * @example
 	 * ```ts
-	 * // Success only (shorthand)
-	 * program.tap(value => console.log("Got:", value))
+	 * // Tap with a void side effect
+	 * program.tap((value) => console.log("success:", value))
 	 *
-	 * // Object observer for both
+	 * // Tap with a Program (value discarded, errors/requirements propagate)
+	 * const tapped = program.tap((value) => log(value))
+	 * // log: Program<void, LoggerError, LoggerService>
+	 * // tapped: Program<T, E | LoggerError, R | LoggerService>
+	 *
+	 * // Tap success value and/or failure error
 	 * program.tap({
-	 *   value: v => console.log("Success:", v),
-	 *   error: e => console.error("Failed:", e)
+	 *   value: (value) => console.log("success:", value),
+	 *   error: (error) => console.error("failed:", error),
 	 * })
 	 * ```
 	 */
-	tap(_fn: (value: T) => void | Promise<void>): Program<T, E, R>
+	tap<U>(
+		_fn: (value: T) => U,
+	): Program<T, E | UnwrapError<U>, R | UnwrapRequirements<U>>
 
-	tap(_observer: TapObserver<T, E>): Program<T, E, R>
+	tap<U, F>(
+		_options: TapOptions<T, E, U, F>,
+	): Program<
+		T,
+		E | UnwrapError<U> | UnwrapError<F>,
+		R | UnwrapRequirements<U> | UnwrapRequirements<F>
+	>
 
-	tap(
-		_fnOrObserver: ((value: T) => void | Promise<void>) | TapObserver<T, E>,
-	): Program<T, E, R> {
+	tap<U, F>(
+		_input: ((value: T) => U) | TapOptions<T, E, U, F>,
+	): Program<
+		T,
+		E | UnwrapError<U> | UnwrapError<F>,
+		R | UnwrapRequirements<U> | UnwrapRequirements<F>
+	> {
 		throw new Error("Program.tap not implemented")
 	}
 
@@ -170,7 +193,7 @@ export class Program<out T = unknown, out E = unknown, out R = never> {
 	>
 
 	catch<F>(
-		_fnOrNameOrHandlers: unknown,
+		_input: unknown,
 		_fn?: unknown,
 	): Program<T | UnwrapValue<F>, unknown, R | UnwrapRequirements<F>> {
 		throw new Error("Program.catch not implemented")

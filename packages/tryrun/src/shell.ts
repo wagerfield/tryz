@@ -18,18 +18,25 @@ import type {
 } from "./types"
 
 /**
- * Shell for declaring requirements and creating and running programs.
+ * Entry point for creating and running programs with dependency injection.
+ * Use `x` (the default `Shell`) or create shells with specific requirements.
  *
- * @typeParam R - Union of tokens required by programs created from this shell
+ * @typeParam R - Union of tokens required by programs created from this `Shell`
  *
  * @example
  * ```ts
+ * // Create a shell with required tokens
  * const shell = x.require(AuthService, UserService)
+ *
+ * // Create a program using the shell
  * const program = shell.try((ctx) => {
  *   const auth = ctx.get(AuthService)
  *   const user = ctx.get(UserService)
  *   return auth.authenticate(user)
  * })
+ *
+ * // Provide dependencies and run
+ * const result = await x.run(program.provide(appProvider))
  * ```
  */
 export class Shell<R = never> {

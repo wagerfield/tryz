@@ -45,20 +45,14 @@ export type RunOptions = {
 	mode?: RunMode
 }
 
-/**
- * Options for the try method with exception catching.
- */
 export type TryOptions<T, E, R> = {
 	try: (ctx: Context<R>) => T
 	catch: (e: unknown) => E
 }
 
-/**
- * Observer for tap method with value and error handlers.
- */
-export type TapObserver<T, E> = {
-	value?: (value: T) => void | Promise<void>
-	error?: (error: E) => void | Promise<void>
+export type TapOptions<T, E, U, F> = {
+	value?: (value: T) => U
+	error?: (error: E) => F
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +73,7 @@ export type ProgramTypes<P> = [P] extends [Program<infer T, infer E, infer R>]
 export type ProgramValue<P> = ProgramTypes<P>[0]
 
 /**
- * Extract the error type from a Program.
+ * Extract the failure error type from a Program.
  */
 export type ProgramError<P> = ProgramTypes<P>[1]
 
