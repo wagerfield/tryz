@@ -55,7 +55,7 @@ test("TypedError instance has Error properties", () => {
 
 test("TypedError instance extends Error", () => {
 	const err = new NotFoundError({ resource: "user", id: 123 })
-	expectTypeOf(err).toMatchTypeOf<Error>()
+	expectTypeOf(err).toExtend<Error>()
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ test("ErrorHandlers handler receives correctly typed error", () => {
 	type Handlers = ErrorHandlers<NotFoundError | TimeoutError>
 
 	// Verify handler parameter types inline
-	expectTypeOf<Handlers>().toMatchTypeOf<{
+	expectTypeOf<Handlers>().toEqualTypeOf<{
 		NotFound?: (error: NotFoundError) => unknown
 		Timeout?: (error: TimeoutError) => unknown
 	}>()

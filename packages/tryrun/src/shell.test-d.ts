@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, test } from "vitest"
 import { TypedError } from "./errors"
 import type { Program } from "./program"
+import type { Provider } from "./provider"
 import type { Result } from "./result"
 import { Shell } from "./shell"
 import { Token, type TokenType } from "./token"
@@ -97,7 +98,7 @@ describe("Shell.try()", () => {
 			})
 
 			// JSON.parse returns any, catch returns Error
-			expectTypeOf(program).toMatchTypeOf<Program<any, Error, never>>()
+			expectTypeOf(program).toEqualTypeOf<Program<any, Error, never>>()
 		})
 
 		test("with typed error", () => {
@@ -178,9 +179,9 @@ describe("Shell.all()", () => {
 
 		const combined = shell.all([p1, p2])
 
-		// Shell.all() produces a tuple of values
-		expectTypeOf(combined).toMatchTypeOf<
-			Program<[string, number], Error | TypeError, never>
+		// TypeError extends Error, so the union collapses to Error
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<[string, number], Error, never>
 		>()
 	})
 
@@ -325,6 +326,6 @@ describe("Shell.provide()", () => {
 		const shell = new Shell()
 		const provider = shell.provide(FooService, { foo: "hello" })
 
-		expectTypeOf(provider).toMatchTypeOf<{ provide: Function }>()
+		expectTypeOf(provider).toEqualTypeOf<Provider<FooInstance>>()
 	})
 })
