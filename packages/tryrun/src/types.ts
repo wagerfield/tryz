@@ -61,6 +61,11 @@ export type TapOptions<T, E, U, F> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * A `Program` with any types, used for generic constraints.
+ */
+export type AnyProgram = Program<any, any, any>
+
+/**
  * Extract the [Value, Error, Requirements] tuple from a Program type.
  */
 export type ProgramTypes<P> = [P] extends [Program<infer T, infer E, infer R>]
@@ -98,46 +103,38 @@ export type ProgramResult<P> = [P] extends [Program<infer T, infer E>]
  * Extract union of [Value, Error, Requirements] across all programs in a tuple.
  * Note: Returns a union, not a mapped tuple.
  */
-export type UnionProgramTypes<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = T[number] extends Program<infer V, infer E, infer R> ? [V, E, R] : never
+export type UnionProgramTypes<T extends readonly AnyProgram[]> =
+	T[number] extends Program<infer V, infer E, infer R> ? [V, E, R] : never
 
 /**
  * Extract union of all value types from a program tuple.
  */
-export type UnionProgramValues<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = UnionProgramTypes<T>[0]
+export type UnionProgramValues<T extends readonly AnyProgram[]> =
+	UnionProgramTypes<T>[0]
 
 /**
  * Extract union of all error types from a program tuple.
  */
-export type UnionProgramErrors<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = UnionProgramTypes<T>[1]
+export type UnionProgramErrors<T extends readonly AnyProgram[]> =
+	UnionProgramTypes<T>[1]
 
 /**
  * Extract union of all requirement types from a program tuple.
  */
-export type UnionProgramRequirements<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = UnionProgramTypes<T>[2]
+export type UnionProgramRequirements<T extends readonly AnyProgram[]> =
+	UnionProgramTypes<T>[2]
 
 /**
  * Map a program tuple to a tuple of value types (preserves tuple structure).
  */
-export type ProgramValuesTuple<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = {
+export type ProgramValuesTuple<T extends readonly AnyProgram[]> = {
 	-readonly [K in keyof T]: ProgramValue<T[K]>
 }
 
 /**
  * Map a program tuple to a tuple of Result types (preserves tuple structure).
  */
-export type ProgramResultTuple<
-	T extends readonly Program<unknown, unknown, unknown>[],
-> = {
+export type ProgramResultTuple<T extends readonly AnyProgram[]> = {
 	-readonly [K in keyof T]: ProgramResult<T[K]>
 }
 
