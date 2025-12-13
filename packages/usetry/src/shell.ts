@@ -1,11 +1,11 @@
 import type { Context } from "./context"
+import type { Middleware } from "./middleware"
 import type { Program } from "./program"
 import type { Provider, TokenFactory } from "./provider"
 import type { Result } from "./result"
 import type { TokenClass, TokenType } from "./token"
 import type {
 	ConcurrencyOptions,
-	Middleware,
 	ProgramValuesTuple,
 	RunOptions,
 	TryOptions,
@@ -90,9 +90,56 @@ export class Shell<R = never> {
 
 	/**
 	 * Add middleware to the shell.
+	 * Middleware wraps all programs created from or passed to this shell.
+	 * Runs in declaration order before the program, and reverse order after.
+	 *
+	 * @example
+	 * ```ts
+	 * // Add logging middleware
+	 * const shell = x.use(async ({ context, signal, next }) => {
+	 *   console.log("Starting...")
+	 *   const result = await next()
+	 *   console.log("Done:", result.success)
+	 *   return result
+	 * })
+	 *
+	 * // All programs from this shell are wrapped
+	 * const program = shell.try(() => fetchUser(id))
+	 * ```
 	 */
 	use(_middleware: Middleware<R>): Shell<R> {
 		throw new Error("Shell.use not implemented")
+	}
+
+	/**
+	 * Create a `Program` from a value, `Promise`, or existing `Program`.
+	 * Applies this shell's middleware and combines requirements.
+	 * Similar to `Promise.resolve` — polymorphic and flattening.
+	 *
+	 * @example
+	 * ```ts
+	 * // From a synchronous value
+	 * const num = x.from(123)
+	 * // num: Program<number, never, never>
+	 *
+	 * // From a Promise
+	 * const user = x.from(fetchUser())
+	 * // user: Program<User, never, never>
+	 *
+	 * // From an existing Program (applies middleware)
+	 * const logged = x.use(loggingMiddleware).from(existingProgram)
+	 * // logged: Program<T, E, R | S>
+	 *
+	 * // Combine with shell requirements
+	 * const shell = x.require(AuthService).use(authMiddleware)
+	 * const wrapped = shell.from(fetchUserProgram)
+	 * // wrapped: Program<User, FetchError, AuthService | UserService>
+	 * ```
+	 */
+	from<T>(
+		_value: T,
+	): Program<UnwrapValue<T>, UnwrapError<T>, R | UnwrapRequirements<T>> {
+		throw new Error("Shell.from not implemented")
 	}
 
 	/**

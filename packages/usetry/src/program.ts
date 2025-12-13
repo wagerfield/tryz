@@ -5,6 +5,7 @@ import type {
 } from "./errors"
 import type { Provider, TokenFactory } from "./provider"
 import type { TokenClass, TokenType } from "./token"
+import type { SpanAttributes, Tracer } from "./tracer"
 import type {
 	RetryOptions,
 	TapOptions,
@@ -79,27 +80,6 @@ export class Program<out T = never, out E = never, out R = never> {
 	}
 
 	/**
-	 * Transform the success value of a `Program`.
-	 * Returns a new `Program` with the transformed value.
-	 * Can return a value, `Promise`, or `Program`.
-	 *
-	 * @example
-	 * ```ts
-	 * const userName = program
-	 *   .then((value) => value * 2)           // transform value
-	 *   .then((value) => fetchUser(value.id)) // return Promise
-	 *   .then((user) => validateUser(user))   // return Program
-	 *   .then((user) => user.name)            // extract property
-	 * // userName: Program<string, E, R>
-	 * ```
-	 */
-	then<U>(
-		_fn: (value: T) => U,
-	): Program<UnwrapValue<U>, E | UnwrapError<U>, R | UnwrapRequirements<U>> {
-		throw new Error("Program.then not implemented")
-	}
-
-	/**
 	 * Perform side effects without changing the `Program` value.
 	 * Returns the same value but may introduce errors or requirements.
 	 * Can return `void`, `Promise`, or `Program` (value is discarded).
@@ -141,6 +121,82 @@ export class Program<out T = never, out E = never, out R = never> {
 		R | UnwrapRequirements<U> | UnwrapRequirements<F>
 	> {
 		throw new Error("Program.tap not implemented")
+	}
+
+	/**
+	 * Wrap the program in a tracing span for observability.
+	 * The span captures execution time and success/failure status.
+	 * Requires a `Tracer` token to be provided before running.
+	 *
+	 * @example
+	 * ```ts
+	 * // Add a span to a program
+	 * const traced = fetchUser(id).span("fetchUser", { userId: id })
+	 * // traced: Program<User, FetchError, R | Tracer>
+	 *
+	 * // Chain multiple spans
+	 * const program = fetchUser(id)
+	 *   .span("fetchUser")
+	 *   .then(enrichUser)
+	 *   .span("enrichUser")
+	 *   .then(saveUser)
+	 *   .span("saveUser")
+	 * ```
+	 */
+	span(_name: string, _attributes?: SpanAttributes): Program<T, E, R | Tracer> {
+		throw new Error("Program.span not implemented")
+	}
+
+	/**
+	 * Pipe the program through a transformation function.
+	 * The function receives the program and must return a new program.
+	 * Useful for applying reusable program transformations.
+	 *
+	 * @example
+	 * ```ts
+	 * // Define reusable transformations
+	 * const withCaching = <T, E, R>(p: Program<T, E, R>) =>
+	 *   x.use(cachingMiddleware).from(p)
+	 *
+	 * const withRetry = <T, E, R>(p: Program<T, E, R>) =>
+	 *   p.retry({ times: 3, delay: 1000 })
+	 *
+	 * const orNull = <T, E, R>(p: Program<T, E, R>) =>
+	 *   p.catch(() => null)
+	 *
+	 * // Apply transformations fluently
+	 * const program = fetchUser(id)
+	 *   .pipe(withCaching)
+	 *   .pipe(withRetry)
+	 *   .pipe(orNull)
+	 *   .then(enrichUser)
+	 * ```
+	 */
+	pipe<U, F, S>(
+		_fn: (program: Program<T, E, R>) => Program<U, F, S>,
+	): Program<U, F, S> {
+		throw new Error("Program.pipe not implemented")
+	}
+
+	/**
+	 * Transform the success value of a `Program`.
+	 * Returns a new `Program` with the transformed value.
+	 * Can return a value, `Promise`, or `Program`.
+	 *
+	 * @example
+	 * ```ts
+	 * const userName = program
+	 *   .then((value) => value * 2)           // transform value
+	 *   .then((value) => fetchUser(value.id)) // return Promise
+	 *   .then((user) => validateUser(user))   // return Program
+	 *   .then((user) => user.name)            // extract property
+	 * // userName: Program<string, E, R>
+	 * ```
+	 */
+	then<U>(
+		_fn: (value: T) => U,
+	): Program<UnwrapValue<U>, E | UnwrapError<U>, R | UnwrapRequirements<U>> {
+		throw new Error("Program.then not implemented")
 	}
 
 	/**
@@ -205,20 +261,6 @@ export class Program<out T = never, out E = never, out R = never> {
 	}
 
 	/**
-	 * Retry the program on failure.
-	 */
-	retry(_policy: RetryOptions | number): Program<T, E, R> {
-		throw new Error("Program.retry not implemented")
-	}
-
-	/**
-	 * Add a timeout to the program.
-	 */
-	timeout<F = E>(_ms: number, _onTimeout?: () => F): Program<T, E | F, R> {
-		throw new Error("Program.timeout not implemented")
-	}
-
-	/**
 	 * Run cleanup logic regardless of success or failure.
 	 * The cleanup function cannot change the result.
 	 *
@@ -232,5 +274,19 @@ export class Program<out T = never, out E = never, out R = never> {
 	 */
 	finally(_fn: () => void | Promise<void>): Program<T, E, R> {
 		throw new Error("Program.finally not implemented")
+	}
+
+	/**
+	 * Add a timeout to the program.
+	 */
+	timeout<F = E>(_ms: number, _onTimeout?: () => F): Program<T, E | F, R> {
+		throw new Error("Program.timeout not implemented")
+	}
+
+	/**
+	 * Retry the program on failure.
+	 */
+	retry(_policy: RetryOptions | number): Program<T, E, R> {
+		throw new Error("Program.retry not implemented")
 	}
 }

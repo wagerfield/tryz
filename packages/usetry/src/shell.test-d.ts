@@ -4,7 +4,9 @@ import type { Program } from "./program"
 import type { Provider } from "./provider"
 import type { Result } from "./result"
 import { Shell } from "./shell"
-import { Token, type TokenType } from "./token"
+import { Token } from "./token"
+
+// Test Services
 
 class FooService extends Token("FooService")<{
 	readonly foo: string
@@ -18,9 +20,7 @@ class BazService extends Token("BazService")<{
 	readonly baz: boolean
 }> {}
 
-type FooInstance = TokenType<typeof FooService>
-type BarInstance = TokenType<typeof BarService>
-type BazInstance = TokenType<typeof BazService>
+// Test Errors
 
 class NotFoundError extends TypedError("NotFound")<{
 	readonly resource: string
@@ -36,16 +36,16 @@ describe("Shell.require()", () => {
 		expectTypeOf(shell).toEqualTypeOf<Shell<never>>()
 
 		const withFoo = shell.require(FooService)
-		expectTypeOf(withFoo).toEqualTypeOf<Shell<FooInstance>>()
+		expectTypeOf(withFoo).toEqualTypeOf<Shell<FooService>>()
 
 		const withFooBar = withFoo.require(BarService)
-		expectTypeOf(withFooBar).toEqualTypeOf<Shell<FooInstance | BarInstance>>()
+		expectTypeOf(withFooBar).toEqualTypeOf<Shell<FooService | BarService>>()
 	})
 
 	test("with multiple tokens at once", () => {
 		const shell = new Shell().require(FooService, BarService, BazService)
 		expectTypeOf(shell).toEqualTypeOf<
-			Shell<FooInstance | BarInstance | BazInstance>
+			Shell<FooService | BarService | BazService>
 		>()
 	})
 })
@@ -55,25 +55,150 @@ describe("Shell.provide()", () => {
 		const shell = new Shell()
 		const provider = shell.provide(FooService, { foo: "hello" })
 
-		expectTypeOf(provider).toEqualTypeOf<Provider<FooInstance>>()
+		expectTypeOf(provider).toEqualTypeOf<Provider<FooService>>()
 	})
 
 	test("creates Provider with factory function", () => {
 		const shell = new Shell()
 		const provider = shell.provide(FooService, () => ({ foo: "hello" }))
 
-		expectTypeOf(provider).toEqualTypeOf<Provider<FooInstance>>()
+		expectTypeOf(provider).toEqualTypeOf<Provider<FooService>>()
 	})
 })
 
 describe("Shell.use()", () => {
 	test("returns Shell with same requirements", () => {
 		const shell = new Shell().require(FooService, BarService)
-		const withMiddleware = shell.use(async ({ next }) => next())
+		const withMiddleware = shell.use(async (ctx) => {
+			// Can access services directly via ctx.get()
+			expectTypeOf(ctx.get(FooService).foo).toEqualTypeOf<string>()
+			expectTypeOf(ctx.get(BarService).bar).toEqualTypeOf<number>()
 
-		expectTypeOf(withMiddleware).toEqualTypeOf<
-			Shell<FooInstance | BarInstance>
-		>()
+			// @ts-expect-error - BazService is not required by the shell
+			ctx.get(BazService)
+
+			// Can access signal directly
+			expectTypeOf(ctx.signal).toEqualTypeOf<AbortSignal>()
+
+			// Call next() to continue execution
+			return ctx.next()
+		})
+
+		expectTypeOf(withMiddleware).toEqualTypeOf<Shell<FooService | BarService>>()
+	})
+})
+
+describe("Shell.from()", () => {
+	describe("with synchronous values", () => {
+		test("creates Program from number", () => {
+			const shell = new Shell()
+			const program = shell.from(123)
+
+			expectTypeOf(program).toEqualTypeOf<Program<number, never, never>>()
+		})
+
+		test("creates Program from string", () => {
+			const shell = new Shell()
+			const program = shell.from("hello")
+
+			expectTypeOf(program).toEqualTypeOf<Program<string, never, never>>()
+		})
+
+		test("creates Program from object", () => {
+			const shell = new Shell()
+			const user = { id: 1, name: "Alice" }
+			const program = shell.from(user)
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<{ id: number; name: string }, never, never>
+			>()
+		})
+
+		test("creates Program from Date", () => {
+			const shell = new Shell()
+			const program = shell.from(new Date())
+
+			expectTypeOf(program).toEqualTypeOf<Program<Date, never, never>>()
+		})
+
+		test("adds shell requirements to sync value", () => {
+			const shell = new Shell().require(FooService, BarService)
+			const program = shell.from(42)
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<number, never, FooService | BarService>
+			>()
+		})
+	})
+
+	describe("with Promises", () => {
+		test("creates Program from Promise", () => {
+			const shell = new Shell()
+			const promise = Promise.resolve(123)
+			const program = shell.from(promise)
+
+			expectTypeOf(program).toEqualTypeOf<Program<number, never, never>>()
+		})
+
+		test("creates Program from Promise with object", () => {
+			const shell = new Shell()
+			const promise = Promise.resolve({ id: 1, name: "Alice" })
+			const program = shell.from(promise)
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<{ id: number; name: string }, never, never>
+			>()
+		})
+
+		test("adds shell requirements to Promise", () => {
+			const shell = new Shell().require(FooService)
+			const promise = Promise.resolve("hello")
+			const program = shell.from(promise)
+
+			expectTypeOf(program).toEqualTypeOf<Program<string, never, FooService>>()
+		})
+	})
+
+	describe("with Programs", () => {
+		test("preserves program types", () => {
+			const shell = new Shell()
+			const program = {} as Program<string, NotFoundError, never>
+			const wrapped = shell.from(program)
+
+			expectTypeOf(wrapped).toEqualTypeOf<
+				Program<string, NotFoundError, never>
+			>()
+		})
+
+		test("combines shell requirements with program requirements", () => {
+			const shell = new Shell().require(FooService)
+			const program = {} as Program<string, NotFoundError, BarService>
+			const wrapped = shell.from(program)
+
+			expectTypeOf(wrapped).toEqualTypeOf<
+				Program<string, NotFoundError, FooService | BarService>
+			>()
+		})
+
+		test("adds shell requirements to program with no requirements", () => {
+			const shell = new Shell().require(FooService, BarService)
+			const program = {} as Program<number, TimeoutError, never>
+			const wrapped = shell.from(program)
+
+			expectTypeOf(wrapped).toEqualTypeOf<
+				Program<number, TimeoutError, FooService | BarService>
+			>()
+		})
+
+		test("works with shell that has no requirements", () => {
+			const shell = new Shell()
+			const program = {} as Program<string, NotFoundError, FooService>
+			const wrapped = shell.from(program)
+
+			expectTypeOf(wrapped).toEqualTypeOf<
+				Program<string, NotFoundError, FooService>
+			>()
+		})
 	})
 })
 
@@ -94,7 +219,7 @@ describe("Shell.try()", () => {
 			})
 
 			expectTypeOf(program).toEqualTypeOf<
-				Program<string, never, FooInstance | BarInstance>
+				Program<string, never, FooService | BarService>
 			>()
 		})
 
@@ -107,11 +232,11 @@ describe("Shell.try()", () => {
 
 		test("with Program return accumulates types", () => {
 			const shell = new Shell().require(FooService)
-			const inner = {} as Program<number, NotFoundError, BarInstance>
+			const inner = {} as Program<number, NotFoundError, BarService>
 			const program = shell.try(() => inner)
 
 			expectTypeOf(program).toEqualTypeOf<
-				Program<number, NotFoundError, FooInstance | BarInstance>
+				Program<number, NotFoundError, FooService | BarService>
 			>()
 		})
 	})
@@ -148,7 +273,20 @@ describe("Shell.try()", () => {
 			})
 
 			expectTypeOf(program).toEqualTypeOf<
-				Program<string, TimeoutError, FooInstance>
+				Program<string, TimeoutError, FooService>
+			>()
+		})
+
+		test("with Program return accumulates types", () => {
+			const shell = new Shell().require(FooService)
+			const inner = {} as Program<number, NotFoundError, BarService>
+			const program = shell.try({
+				try: () => inner,
+				catch: () => new TimeoutError({ ms: 1000 }),
+			})
+
+			expectTypeOf(program).toEqualTypeOf<
+				Program<number, TimeoutError | NotFoundError, FooService | BarService>
 			>()
 		})
 	})
@@ -215,9 +353,9 @@ describe("Shell.all()", () => {
 	test("accepts programs with requirements and combines them", () => {
 		const shell = new Shell()
 
-		const p1 = {} as Program<string, NotFoundError, FooInstance>
-		const p2 = {} as Program<number, TimeoutError, BarInstance>
-		const p3 = {} as Program<boolean, never, BazInstance>
+		const p1 = {} as Program<string, NotFoundError, FooService>
+		const p2 = {} as Program<number, TimeoutError, BarService>
+		const p3 = {} as Program<boolean, never, BazService>
 
 		const combined = shell.all([p1, p2, p3])
 
@@ -225,7 +363,7 @@ describe("Shell.all()", () => {
 			Program<
 				[string, number, boolean],
 				NotFoundError | TimeoutError,
-				FooInstance | BarInstance | BazInstance
+				FooService | BarService | BazService
 			>
 		>()
 	})
@@ -234,12 +372,46 @@ describe("Shell.all()", () => {
 		const shell = new Shell()
 
 		const p1 = {} as Program<string, never, never>
-		const p2 = {} as Program<number, NotFoundError, FooInstance>
+		const p2 = {} as Program<number, NotFoundError, FooService>
 
 		const combined = shell.all([p1, p2])
 
 		expectTypeOf(combined).toEqualTypeOf<
-			Program<[string, number], NotFoundError, FooInstance>
+			Program<[string, number], NotFoundError, FooService>
+		>()
+	})
+
+	test("combines shell requirements with program requirements", () => {
+		const shell = new Shell().require(FooService)
+
+		const p1 = {} as Program<string, NotFoundError, BarService>
+		const p2 = {} as Program<number, TimeoutError, never>
+
+		const combined = shell.all([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				[string, number],
+				NotFoundError | TimeoutError,
+				FooService | BarService
+			>
+		>()
+	})
+
+	test("with ConcurrencyOptions preserves types", () => {
+		const shell = new Shell()
+
+		const p1 = {} as Program<string, NotFoundError, FooService>
+		const p2 = {} as Program<number, TimeoutError, BarService>
+
+		const combined = shell.all([p1, p2], { concurrency: 5 })
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				[string, number],
+				NotFoundError | TimeoutError,
+				FooService | BarService
+			>
 		>()
 	})
 })
@@ -261,8 +433,8 @@ describe("Shell.any()", () => {
 	test("accepts programs with requirements and combines them", () => {
 		const shell = new Shell()
 
-		const p1 = {} as Program<string, NotFoundError, FooInstance>
-		const p2 = {} as Program<number, TimeoutError, BarInstance>
+		const p1 = {} as Program<string, NotFoundError, FooService>
+		const p2 = {} as Program<number, TimeoutError, BarService>
 
 		const combined = shell.any([p1, p2])
 
@@ -270,7 +442,24 @@ describe("Shell.any()", () => {
 			Program<
 				string | number,
 				NotFoundError | TimeoutError,
-				FooInstance | BarInstance
+				FooService | BarService
+			>
+		>()
+	})
+
+	test("combines shell requirements with program requirements", () => {
+		const shell = new Shell().require(FooService)
+
+		const p1 = {} as Program<string, NotFoundError, BarService>
+		const p2 = {} as Program<number, TimeoutError, never>
+
+		const combined = shell.any([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				string | number,
+				NotFoundError | TimeoutError,
+				FooService | BarService
 			>
 		>()
 	})
@@ -293,8 +482,8 @@ describe("Shell.race()", () => {
 	test("accepts programs with requirements and combines them", () => {
 		const shell = new Shell()
 
-		const p1 = {} as Program<string, NotFoundError, FooInstance>
-		const p2 = {} as Program<number, TimeoutError, BarInstance>
+		const p1 = {} as Program<string, NotFoundError, FooService>
+		const p2 = {} as Program<number, TimeoutError, BarService>
 
 		const combined = shell.race([p1, p2])
 
@@ -302,7 +491,24 @@ describe("Shell.race()", () => {
 			Program<
 				string | number,
 				NotFoundError | TimeoutError,
-				FooInstance | BarInstance
+				FooService | BarService
+			>
+		>()
+	})
+
+	test("combines shell requirements with program requirements", () => {
+		const shell = new Shell().require(FooService)
+
+		const p1 = {} as Program<string, NotFoundError, BarService>
+		const p2 = {} as Program<number, TimeoutError, never>
+
+		const combined = shell.race([p1, p2])
+
+		expectTypeOf(combined).toEqualTypeOf<
+			Program<
+				string | number,
+				NotFoundError | TimeoutError,
+				FooService | BarService
 			>
 		>()
 	})
@@ -312,7 +518,7 @@ describe("Shell.run()", () => {
 	test("only accepts Program with never requirements", () => {
 		const shell = new Shell()
 		const runnable = {} as Program<string, Error, never>
-		const notRunnable = {} as Program<string, Error, FooInstance>
+		const notRunnable = {} as Program<string, Error, FooService>
 
 		// ✅ This should work
 		shell.run(runnable)
@@ -343,5 +549,26 @@ describe("Shell.run()", () => {
 		const result = shell.run(program, { unwrap: false })
 
 		expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
+	})
+
+	test("with signal option returns Promise<Result<T, E>>", () => {
+		const shell = new Shell()
+		const program = {} as Program<string, Error, never>
+		const controller = new AbortController()
+		const result = shell.run(program, { signal: controller.signal })
+
+		expectTypeOf(result).toEqualTypeOf<Promise<Result<string, Error>>>()
+	})
+
+	test("with signal and unwrap options", () => {
+		const shell = new Shell()
+		const program = {} as Program<string, Error, never>
+		const controller = new AbortController()
+		const result = shell.run(program, {
+			signal: controller.signal,
+			unwrap: true,
+		})
+
+		expectTypeOf(result).toEqualTypeOf<Promise<string>>()
 	})
 })

@@ -22,12 +22,6 @@ export type Simplify<A> = { [K in keyof A]: A[K] } extends infer B ? B : never
 // Options Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Middleware<C> = (context: {
-	context: C
-	signal: AbortSignal
-	next: () => Promise<unknown>
-}) => Promise<unknown>
-
 export type RetryOptions = {
 	times?: number
 	delay?: number | ((attempt: number) => number)
