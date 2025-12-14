@@ -43,12 +43,6 @@ export type TypedErrorInstance<
 	Shape extends Record<string, unknown>,
 > = Error & { readonly name: Name } & Readonly<Shape>
 
-export class Failed extends TypedError("Failed") {}
-
-export const fail = (): never => {
-	throw new Failed()
-}
-
 export class Defect extends TypedError("Defect") {}
 
 export const defect = (error?: unknown): never => {
