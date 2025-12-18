@@ -1,14 +1,14 @@
-# usetry
+# tryz
 
 **Type-safe, composable programs with tracked errors and dependencies.**
 
-[![npm version](https://img.shields.io/npm/v/usetry.svg)](https://www.npmjs.com/package/usetry)
+[![npm version](https://img.shields.io/npm/v/tryz.svg)](https://www.npmjs.com/package/tryz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
 ## Overview
 
-`usetry` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises.
+`tryz` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises.
 
 ## Features
 
@@ -22,13 +22,13 @@
 ## Installation
 
 ```bash
-npm install usetry
+npm install tryz
 ```
 
 ## Quick Start
 
 ```typescript
-import { x, Token, TypedError } from "usetry"
+import { x, Token, TypedError } from "tryz"
 
 // Define a service token
 class UserService extends Token("UserService")<{
@@ -64,7 +64,7 @@ if (result.success) {
 
 ## Documentation
 
-📖 [Full Documentation](https://usetry.vercel.app)
+📖 [Full Documentation](https://tryz.run)
 
 ## License
 

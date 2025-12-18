@@ -1,8 +1,8 @@
 {
-	"name": "usetry",
+	"name": "tryz",
 	"version": "0.0.1",
 	"description": "Compose programs with errors and dependencies tracked at the type level. Zero runtime surprises.",
-	"homepage": "https://usetry.vercel.app",
+	"homepage": "https://tryz.run",
 	"license": "MIT",
 	"author": {
 		"name": "Matthew Wagerfield",
@@ -11,10 +11,10 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/wagerfield/usetry.git",
-		"directory": "packages/usetry"
+		"url": "https://github.com/wagerfield/tryz.git",
+		"directory": "packages/tryz"
 	},
-	"bugs": "https://github.com/wagerfield/usetry/issues",
+	"bugs": "https://github.com/wagerfield/tryz/issues",
 	"keywords": [
 		"composable",
 		"type-safe",

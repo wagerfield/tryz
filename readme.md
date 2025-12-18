@@ -1,8 +1,8 @@
-# usetry
+# tryz
 
 **Type-safe, composable programs with tracked errors and dependencies.**
 
-[![npm version](https://img.shields.io/npm/v/usetry.svg)](https://www.npmjs.com/package/usetry)
+[![npm version](https://img.shields.io/npm/v/tryz.svg)](https://www.npmjs.com/package/tryz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
@@ -10,9 +10,9 @@
 
 ## Overview
 
-`usetry` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises from unhandled errors or missing services.
+`tryz` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises from unhandled errors or missing services.
 
-Inspired by functional effect systems, `usetry` provides a minimal API that integrates seamlessly with async/await while giving you:
+Inspired by functional effect systems, `tryz` provides a minimal API that integrates seamlessly with async/await while giving you:
 
 - **Compile-time error tracking** — Know exactly what can fail
 - **Compile-time dependency tracking** — Know exactly what's required to run
@@ -22,13 +22,13 @@ Inspired by functional effect systems, `usetry` provides a minimal API that inte
 ## Installation
 
 ```bash
-npm install usetry
+npm install tryz
 ```
 
 ## Quick Example
 
 ```typescript
-import { x, Token, TypedError } from "usetry"
+import { x, Token, TypedError } from "tryz"
 
 // Define service tokens
 class UserService extends Token("UserService")<{
@@ -104,7 +104,7 @@ const runnable: Program<string, NetworkError, never> = program.provide(apiProvid
 The `Shell` is your entry point for creating programs. Use `x` (the default shell) or create your own.
 
 ```typescript
-import { x } from "usetry"
+import { x } from "tryz"
 
 // Create programs with .try()
 const program = x.try(() => "hello")
@@ -254,22 +254,22 @@ const any = x.any([primary, fallback1, fallback2])
 const race = x.race([fast, slow])
 ```
 
-## Why usetry?
+## Why tryz?
 
-| Feature                | `usetry` | `Promise` | `effect` |
-| ---------------------- | -------- | --------- | -------- |
-| Typed errors           | ✅       | ❌        | ✅       |
-| Typed dependencies     | ✅       | ❌        | ✅       |
-| Bundle size            | ~2KB     | 0         | ~25KB+   |
-| Learning curve         | Low      | None      | High     |
-| Async/await compatible | ✅       | ✅        | ✅       |
+| Feature                | `tryz` | `Promise` | `effect` |
+| ---------------------- | ------ | --------- | -------- |
+| Typed errors           | ✅     | ❌        | ✅       |
+| Typed dependencies     | ✅     | ❌        | ✅       |
+| Bundle size            | ~2KB   | 0         | ~25KB+   |
+| Learning curve         | Low    | None      | High     |
+| Async/await compatible | ✅     | ✅        | ✅       |
 
-`usetry` sits in the sweet spot: **more safety than promises, less complexity than full effect systems**.
+`tryz` sits in the sweet spot: **more safety than promises, less complexity than full effect systems**.
 
 ## Documentation
 
-📖 [Full Documentation](https://usetry.vercel.app)
+📖 [Full Documentation](https://tryz.run)
 
 ## License
 
-[MIT](./packages/usetry/license) © [Matthew Wagerfield](https://github.com/wagerfield)
+[MIT](./packages/tryz/license) © [Matthew Wagerfield](https://github.com/wagerfield)

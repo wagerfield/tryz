@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress"
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-	title: "UseTry",
+	title: "tryz",
 	description: `Compose programs with errors and dependencies tracked at the type level.`,
 	outDir: "dist",
 	cleanUrls: true,
@@ -44,7 +44,7 @@ export default defineConfig({
 			},
 		],
 		socialLinks: [
-			{ icon: "github", link: "https://github.com/wagerfield/usetry" },
+			{ icon: "github", link: "https://github.com/wagerfield/tryz" },
 		],
 	},
 })

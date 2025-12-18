@@ -1,4 +1,4 @@
-# tryrun Specification
+# tryz Specification
 
 > Lean, type-safe error handling and dependency injection with a `Promise`-like API.
 
@@ -6,7 +6,7 @@
 
 ## Introduction
 
-`tryrun` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Program`. Programs are lazy computations that track:
+`tryz` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Program`. Programs are lazy computations that track:
 
 - `T` — the success value type
 - `E` — possible error type
@@ -510,7 +510,7 @@ else console.error(result.error)
 
 ## Appendix: Comparison with Effect
 
-| Concept           | Effect                          | tryrun                    |
+| Concept           | Effect                          | tryz                      |
 | ----------------- | ------------------------------- | ------------------------- |
 | Core type         | `Effect<A, E, R>`               | `Program<T, E, R>`        |
 | Lift value        | `Effect.succeed`                | `Program.from`            |
