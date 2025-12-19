@@ -6,252 +6,252 @@
 
 ## Introduction
 
-`thunx` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Program`. Programs are lazy computations that track:
+`thunx` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Thunk`. Thunks are lazy computations that track:
 
 - `T` — success value type
 - `E` — possible error type
 - `R` — required dependency type (must be `never` to run)
 
 ```ts
-Program<User, FetchError, UserService>
-//      ↑     ↑           ↑
-//      T     E           R
+Thunk<User, FetchError, UserService>
+//    ↑     ↑           ↑
+//    T     E           R
 ```
 
-Unlike `Promises` which are _eagerly_ executed, `Programs` are thunks (zero-argument functions) that are _lazily_ executed.
+Unlike `Promises` which are _eagerly_ executed, `Thunks` are zero-argument functions that are _lazily_ executed.
 
 Thunks defer execution, enabling composition, observation, instrumentation, and resilience through retryability.
 
 ### Design Principles
 
-| Principle               | Description                                                               |
-| ----------------------- | ------------------------------------------------------------------------- |
-| **Errors as values**    | Return `TypedError` instances to fail — no `throw` statements             |
-| **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Program<T, E, R>` uniformly |
-| **Minimal API surface** | 7 static methods; everything else chains from instances                   |
+| Principle               | Description                                                             |
+| ----------------------- | ----------------------------------------------------------------------- |
+| **Errors as values**    | Return `TypedError` instances to fail — no `throw` statements           |
+| **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, R>` uniformly |
+| **Minimal API surface** | 7 static methods; everything else chains from instances                 |
 
 ---
 
-## 1. `Program`
+## 1. `Thunk`
 
 ### 1.1 Static Methods
 
-| Method                         | Description                     |
-| ------------------------------ | ------------------------------- |
-| [`Program.from`](#programfrom) | Lift value, promise, or program |
-| [`Program.try`](#programtry)   | Create from thunk               |
-| [`Program.gen`](#programgen)   | Compose via generators          |
-| [`Program.all`](#programall)   | Concurrent — collect all        |
-| [`Program.any`](#programany)   | Concurrent — first success      |
-| [`Program.race`](#programrace) | Concurrent — first to settle    |
-| [`Program.run`](#programrun)   | Execute program                 |
+| Method                     | Description                   |
+| -------------------------- | ----------------------------- |
+| [`Thunk.from`](#thunkfrom) | Lift value, promise, or thunk |
+| [`Thunk.try`](#thunktry)   | Create from factory           |
+| [`Thunk.gen`](#thunkgen)   | Compose via generators        |
+| [`Thunk.all`](#thunkall)   | Concurrent — collect all      |
+| [`Thunk.any`](#thunkany)   | Concurrent — first success    |
+| [`Thunk.race`](#thunkrace) | Concurrent — first to settle  |
+| [`Thunk.run`](#thunkrun)   | Execute thunk                 |
 
-#### `Program.from`
+#### `Thunk.from`
 
-Lifts a value, `Promise`, or `Program` into a new `Program`.
+Lifts a value, `Promise`, or `Thunk` into a new `Thunk`.
 
 ```ts
-Program.from(42) // Program<number, never, never>
-Program.from(fetch(url)) // Program<Response, never, never>
-Program.from(existingProgram) // Program<T, E, R>
+Thunk.from(42) // Thunk<number, never, never>
+Thunk.from(fetch(url)) // Thunk<Response, never, never>
+Thunk.from(existingThunk) // Thunk<T, E, R>
 ```
 
-#### `Program.try`
+#### `Thunk.try`
 
-Creates a `Program` from a thunk with optional error handling.
+Creates a `Thunk` from a factory with optional error handling.
 
 ```ts
-Program.try(() => 42)
-// Program<number, never, never>
+Thunk.try(() => 42)
+// Thunk<number, never, never>
 
-Program.try({
+Thunk.try({
   try: () => fetch(url),
   catch: (error) => new FetchError({ cause: error }),
 })
-// Program<Response, FetchError, never>
+// Thunk<Response, FetchError, never>
 
-Program.try((ctx) => fetch(url, { signal: ctx.signal }))
-// Program<Response, never, never>
+Thunk.try((ctx) => fetch(url, { signal: ctx.signal }))
+// Thunk<Response, never, never>
 ```
 
 > Without `catch`, thrown errors are wrapped in an `UnexpectedError`.
 
-#### `Program.gen`
+#### `Thunk.gen`
 
-Composes `Programs` using generator syntax. Yield `Programs`, `Tokens`, or `TypedErrors`.
+Composes `Thunks` using generator syntax. Yield `Thunks`, `Tokens`, or `TypedErrors`.
 
 ```ts
-Program.gen(function* () {
+Thunk.gen(function* () {
   const auth = yield* AuthService // R += AuthService
   const user = yield* fetchUser(auth.userId) // E += FetchError
   if (!user.active) yield* new InactiveError() // E += InactiveError
   return user // T += User
 })
-// Program<User, FetchError | InactiveError, AuthService>
+// Thunk<User, FetchError | InactiveError, AuthService>
 ```
 
-#### `Program.all`
+#### `Thunk.all`
 
-Runs `Programs` concurrently and collects all results.
+Runs `Thunks` concurrently and collects all results.
 
 ```ts
-Program.all([fetchUser(id), fetchPosts(id)])
-// Program<[User, Post[]], UserError | PostError, never>
+Thunk.all([fetchUser(id), fetchPosts(id)])
+// Thunk<[User, Post[]], UserError | PostError, never>
 
-Program.all({ user: UserService, config: ConfigService })
-// Program<{ user: ..., config: ... }, never, UserService | ConfigService>
+Thunk.all({ user: UserService, config: ConfigService })
+// Thunk<{ user: ..., config: ... }, never, UserService | ConfigService>
 
-Program.all(programs, { concurrency: 5 })
+Thunk.all(thunks, { concurrency: 5 })
 ```
 
-#### `Program.any`
+#### `Thunk.any`
 
-Returns first successful result. If all programs fail, returns an `AggregateError` containing all errors.
+Returns first successful result. If all thunks fail, returns an `AggregateError` containing all errors.
 
 ```ts
-Program.any([fetchFromCache(id), fetchFromDb(id)])
-// Program<User, AggregateError<CacheError | DbError>, ...>
+Thunk.any([fetchFromCache(id), fetchFromDb(id)])
+// Thunk<User, AggregateError<CacheError | DbError>, ...>
 ```
 
-#### `Program.race`
+#### `Thunk.race`
 
 Returns first to settle (success or failure).
 
 ```ts
-Program.race([fetchData(), timeout(5000)])
-// Program<Data, FetchError | TimeoutError, never>
+Thunk.race([fetchData(), timeout(5000)])
+// Thunk<Data, FetchError | TimeoutError, never>
 ```
 
-#### `Program.run`
+#### `Thunk.run`
 
-Executes a `Program`. Requires `R = never`.
+Executes a `Thunk`. Requires `R = never`.
 
 ```ts
-const result = await Program.run(program) // Result<T, E>
+const result = await Thunk.run(thunk) // Result<T, E>
 
 if (result.ok) console.log(result.value)
 else console.error(result.error)
 
 // With options
-await Program.run(program, { signal }) // pass AbortSignal
-await Program.run(program, { unwrap: true }) // throws on error, returns T
+await Thunk.run(thunk, { signal }) // pass AbortSignal
+await Thunk.run(thunk, { unwrap: true }) // throws on error, returns T
 ```
 
 ---
 
 ### 1.2 Instance Methods
 
-| Method                               | Description                   |
-| ------------------------------------ | ----------------------------- |
-| [`program.then`](#programthen)       | Transform success value       |
-| [`program.catch`](#programcatch)     | Handle errors                 |
-| [`program.finally`](#programfinally) | Cleanup regardless of outcome |
-| [`program.pipe`](#programpipe)       | Apply transformation          |
-| [`program.tap`](#programtap)         | Side effects                  |
-| [`program.span`](#programspan)       | Add tracing span              |
-| [`program.retry`](#programretry)     | Retry on failure              |
-| [`program.timeout`](#programtimeout) | Add timeout                   |
-| [`program.provide`](#programprovide) | Satisfy requirements          |
+| Method                           | Description                   |
+| -------------------------------- | ----------------------------- |
+| [`thunk.then`](#thunkthen)       | Transform success value       |
+| [`thunk.catch`](#thunkcatch)     | Handle errors                 |
+| [`thunk.finally`](#thunkfinally) | Cleanup regardless of outcome |
+| [`thunk.pipe`](#thunkpipe)       | Apply transformation          |
+| [`thunk.tap`](#thunktap)         | Side effects                  |
+| [`thunk.span`](#thunkspan)       | Add tracing span              |
+| [`thunk.retry`](#thunkretry)     | Retry on failure              |
+| [`thunk.timeout`](#thunktimeout) | Add timeout                   |
+| [`thunk.provide`](#thunkprovide) | Satisfy requirements          |
 
-#### `program.then`
+#### `thunk.then`
 
 Transforms the success value. Return a `TypedError` to fail.
 
 ```ts
-program.then((v) => v.name)
-// Program<string, E, R>
+thunk.then((v) => v.name)
+// Thunk<string, E, R>
 
-program.then((v) => {
+thunk.then((v) => {
   if (!v) return new NotFoundError()
   return v.name
 })
-// Program<string, E | NotFoundError, R>
+// Thunk<string, E | NotFoundError, R>
 ```
 
-#### `program.catch`
+#### `thunk.catch`
 
 Handles errors. Return a `TypedError` to re-throw.
 
 ```ts
-program.catch((e) => fallback)
-// Program<T | Fallback, never, R>
+thunk.catch((e) => fallback)
+// Thunk<T | Fallback, never, R>
 
-program.catch("NotFoundError", (e) => null)
-// Program<T | null, Exclude<E, NotFoundError>, R>
+thunk.catch("NotFoundError", (e) => null)
+// Thunk<T | null, Exclude<E, NotFoundError>, R>
 
-program.catch({
+thunk.catch({
   NotFoundError: (e) => null,
   TimeoutError: (e) => new RetryError(),
 })
-// Program<T | null, Exclude<E, ...> | RetryError, R>
+// Thunk<T | null, Exclude<E, ...> | RetryError, R>
 ```
 
-#### `program.finally`
+#### `thunk.finally`
 
 Runs cleanup regardless of outcome.
 
 ```ts
-program.finally(() => cleanup())
+thunk.finally(() => cleanup())
 ```
 
-#### `program.pipe`
+#### `thunk.pipe`
 
 Applies a transformation function.
 
 ```ts
-const withRetry = <T, E, R>(p: Program<T, E, R>) => p.retry(3)
-program.pipe(withRetry)
+const withRetry = <T, E, R>(t: Thunk<T, E, R>) => t.retry(3)
+thunk.pipe(withRetry)
 ```
 
-#### `program.tap`
+#### `thunk.tap`
 
 Runs side effects without changing the value.
 
 ```ts
-program.tap((v) => console.log(v))
+thunk.tap((v) => console.log(v))
 
-program.tap({
+thunk.tap({
   value: (v) => console.log(v),
   error: (e) => console.error(e),
 })
 ```
 
-#### `program.span`
+#### `thunk.span`
 
 Adds a tracing span. Requires a `Tracer` token to be provided before running.
 
 ```ts
-program.span("fetchUser", { userId: id })
-// Program<T, E, R | Tracer>
+thunk.span("fetchUser", { userId: id })
+// Thunk<T, E, R | Tracer>
 ```
 
 > The `Tracer` token must be provided via a `Provider`. See the Tracer section for implementation details.
 
-#### `program.retry`
+#### `thunk.retry`
 
 Retries on failure.
 
 ```ts
-program.retry(3)
-program.retry({ times: 3, delay: 1000, backoff: "exponential" })
+thunk.retry(3)
+thunk.retry({ times: 3, delay: 1000, backoff: "exponential" })
 ```
 
-#### `program.timeout`
+#### `thunk.timeout`
 
 Adds a timeout.
 
 ```ts
-program.timeout(5000)
-// Program<T, E | TimeoutError, R>
+thunk.timeout(5000)
+// Thunk<T, E | TimeoutError, R>
 ```
 
-#### `program.provide`
+#### `thunk.provide`
 
 Satisfies requirements with a `Provider`.
 
 ```ts
-program.provide(appProvider)
-// Program<T, E, Exclude<R, ProvidedTokens>>
+thunk.provide(appProvider)
+// Thunk<T, E, Exclude<R, ProvidedTokens>>
 ```
 
 ---
@@ -273,12 +273,12 @@ class NotFoundError extends TypedError("NotFoundError")<{
 Return or yield to fail — no `throw` needed:
 
 ```ts
-program.then((v) => {
+thunk.then((v) => {
   if (!v) return new NotFoundError({ resource: "user" })
   return v
 })
 
-Program.gen(function* () {
+Thunk.gen(function* () {
   const user = yield* fetchUser(id)
   if (!user) yield* new NotFoundError({ resource: "user" })
   return user
@@ -287,24 +287,24 @@ Program.gen(function* () {
 
 ### Built-in Errors
 
-| Error             | Purpose                              |
-| ----------------- | ------------------------------------ |
-| `UnexpectedError` | Unexpected errors                    |
-| `AggregateError`  | Collection of errors (`Program.any`) |
-| `TimeoutError`    | Timeout exceeded                     |
-| `AbortError`      | Cancelled operation                  |
+| Error             | Purpose                            |
+| ----------------- | ---------------------------------- |
+| `UnexpectedError` | Unexpected errors                  |
+| `AggregateError`  | Collection of errors (`Thunk.any`) |
+| `TimeoutError`    | Timeout exceeded                   |
+| `AbortError`      | Cancelled operation                |
 
 ---
 
 ## 3. `Token`
 
-`Tokens` define injectable dependencies. A `Token` class **is a `Program`** — yielding it returns the service instance and adds the `Token` to `R`.
+`Tokens` define injectable dependencies. A `Token` class **is a `Thunk`** — yielding it returns the service instance and adds the `Token` to `R`.
 
 ### Definition
 
 ```ts
 class UserService extends Token("UserService")<{
-  readonly getUser: (id: string) => Program<User, FetchError, never>
+  readonly getUser: (id: string) => Thunk<User, FetchError, never>
 }> {}
 ```
 
@@ -316,10 +316,10 @@ const svc = yield * UserService
 
 // Chain directly
 UserService.then((svc) => svc.getUser(id))
-// Program<User, FetchError, UserService>
+// Thunk<User, FetchError, UserService>
 
-// In Program.all
-Program.all({ user: UserService, config: ConfigService })
+// In Thunk.all
+Thunk.all({ user: UserService, config: ConfigService })
 ```
 
 ### Providing
@@ -331,13 +331,13 @@ const provider = Provider.provide(ConfigService, () => ({
   apiUrl: "https://...",
 })).provide(UserService, (ctx) => ({
   getUser: (id) =>
-    Program.try({
+    Thunk.try({
       try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`),
       catch: (e) => new FetchError({ cause: e }),
     }),
 }))
 
-program.provide(provider)
+thunk.provide(provider)
 ```
 
 ---
@@ -347,7 +347,7 @@ program.provide(provider)
 Execution context passed to factories. Two variants exist:
 
 ```ts
-// Base context (Program.try, Provider.provide static)
+// Base context (Thunk.try, Provider.provide static)
 interface Context {
   readonly signal: AbortSignal
 }
@@ -358,7 +358,7 @@ interface ProviderContext<C> extends Context {
 }
 ```
 
-The `signal` originates from `Program.run` options (or an internal default). The `get` method is only available when prior `Tokens` exist in the `Provider` chain.
+The `signal` originates from `Thunk.run` options (or an internal default). The `get` method is only available when prior `Tokens` exist in the `Provider` chain.
 
 ---
 
@@ -404,15 +404,15 @@ const fullProvider = Provider.merge(authProvider, appProvider)
 const minimalProvider = fullProvider.pick(ConfigService, DbService)
 const withoutAuth = fullProvider.omit(AuthService)
 
-program.provide(appProvider)
-// Program<T, E, Exclude<R, ConfigService | DbService | UserService>>
+thunk.provide(appProvider)
+// Thunk<T, E, Exclude<R, ConfigService | DbService | UserService>>
 ```
 
 ---
 
 ## 6. `Result`
 
-The return type of `Program.run`.
+The return type of `Thunk.run`.
 
 ```ts
 type Result<T, E> =
@@ -428,7 +428,7 @@ type Result<T, E> =
 
 | Type         | Returns         | Adds to E | Adds to R |
 | ------------ | --------------- | --------- | --------- |
-| `Program`    | `T`             | `E`       | `R`       |
+| `Thunk`      | `T`             | `E`       | `R`       |
 | `Token`      | `TokenInstance` | —         | `Token`   |
 | `TypedError` | (fails)         | `Error`   | —         |
 
@@ -440,7 +440,7 @@ Values returned from `then`, `catch`, or yielded in `gen`:
 | ------------ | --------------- | ------- | ------------ |
 | `T`          | `T`             | `never` | `never`      |
 | `Promise<T>` | `T`             | `never` | `never`      |
-| `Program`    | `T`             | `E`     | `R`          |
+| `Thunk`      | `T`             | `E`     | `R`          |
 | `Token`      | `TokenInstance` | `never` | `Token`      |
 | `TypedError` | `never`         | `Error` | `never`      |
 
@@ -448,14 +448,14 @@ Values returned from `then`, `catch`, or yielded in `gen`:
 
 ```ts
 a.then(() => b)
-// Program<Tb, Ea | Eb, Ra | Rb>
+// Thunk<Tb, Ea | Eb, Ra | Rb>
 ```
 
 ### Providing Removes from R
 
 ```ts
-program.provide(partialProvider) // R -= provided tokens
-program.provide(fullProvider) // R = never → runnable
+thunk.provide(partialProvider) // R -= provided tokens
+thunk.provide(fullProvider) // R = never → runnable
 ```
 
 ---
@@ -470,22 +470,22 @@ class ConfigService extends Token("ConfigService")<{
 }> {}
 
 class UserService extends Token("UserService")<{
-  readonly getUser: (id: string) => Program<User, FetchError, never>
+  readonly getUser: (id: string) => Thunk<User, FetchError, never>
 }> {}
 
 // Errors
 class UnauthorizedError extends TypedError("UnauthorizedError") {}
 
-// Program
+// Thunk
 const getUserProfile = (id: string) =>
-  Program.gen(function* () {
+  Thunk.gen(function* () {
     const config = yield* ConfigService
     const userService = yield* UserService
     const user = yield* userService.getUser(id).timeout(config.timeout)
     if (!user.active) yield* new UnauthorizedError()
     return { id: user.id, name: user.name, email: user.email }
   })
-// Program<UserProfile, FetchError | TimeoutError | UnauthorizedError, ConfigService | UserService>
+// Thunk<UserProfile, FetchError | TimeoutError | UnauthorizedError, ConfigService | UserService>
 
 // Provider
 const appProvider = Provider.provide(ConfigService, () => ({
@@ -493,7 +493,7 @@ const appProvider = Provider.provide(ConfigService, () => ({
   timeout: 5000,
 })).provide(UserService, (ctx) => ({
   getUser: (id) =>
-    Program.try({
+    Thunk.try({
       try: () =>
         fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`).then((r) =>
           r.json(),
@@ -503,7 +503,7 @@ const appProvider = Provider.provide(ConfigService, () => ({
 }))
 
 // Execute
-const result = await Program.run(getUserProfile("123").provide(appProvider))
+const result = await Thunk.run(getUserProfile("123").provide(appProvider))
 
 if (result.ok) console.log(result.value)
 else console.error(result.error)
@@ -515,13 +515,13 @@ else console.error(result.error)
 
 | Concept           | Effect                          | thunx                     |
 | ----------------- | ------------------------------- | ------------------------- |
-| Core type         | `Effect<A, E, R>`               | `Program<T, E, R>`        |
-| Lift value        | `Effect.succeed`                | `Program.from`            |
-| Create from thunk | `Effect.try`                    | `Program.try`             |
+| Core type         | `Effect<A, E, R>`               | `Thunk<T, E, R>`          |
+| Lift value        | `Effect.succeed`                | `Thunk.from`              |
+| Create from thunk | `Effect.try`                    | `Thunk.try`               |
 | Fail              | `Effect.fail`                   | `return new TypedError()` |
-| Transform         | `Effect.map` / `Effect.flatMap` | `program.then`            |
-| Handle errors     | `Effect.catchTag`               | `program.catch`           |
-| Side effects      | `Effect.tap`                    | `program.tap`             |
-| Run               | `Effect.runPromise`             | `Program.run`             |
-| Generator syntax  | `Effect.gen`                    | `Program.gen`             |
+| Transform         | `Effect.map` / `Effect.flatMap` | `thunk.then`              |
+| Handle errors     | `Effect.catchTag`               | `thunk.catch`             |
+| Side effects      | `Effect.tap`                    | `thunk.tap`               |
+| Run               | `Effect.runPromise`             | `Thunk.run`               |
+| Generator syntax  | `Effect.gen`                    | `Thunk.gen`               |
 | Service access    | `yield* Tag`                    | `yield* Token`            |
