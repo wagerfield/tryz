@@ -1,8 +1,8 @@
-# tryz
+# thunx
 
 **Type-safe, composable programs with tracked errors and dependencies.**
 
-[![npm version](https://img.shields.io/npm/v/tryz.svg)](https://www.npmjs.com/package/tryz)
+[![npm version](https://img.shields.io/npm/v/thunx.svg)](https://www.npmjs.com/package/thunx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
@@ -10,9 +10,9 @@
 
 ## Overview
 
-`tryz` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises from unhandled errors or missing services.
+`thunx` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises from unhandled errors or missing services.
 
-Inspired by functional effect systems, `tryz` provides a minimal API that integrates seamlessly with async/await while giving you:
+Inspired by functional effect systems, `thunx` provides a minimal API that integrates seamlessly with async/await while giving you:
 
 - **Compile-time error tracking** — Know exactly what can fail
 - **Compile-time dependency tracking** — Know exactly what's required to run
@@ -22,13 +22,13 @@ Inspired by functional effect systems, `tryz` provides a minimal API that integr
 ## Installation
 
 ```bash
-npm install tryz
+npm install thunx
 ```
 
 ## Quick Example
 
 ```typescript
-import { x, Token, TypedError } from "tryz"
+import { x, Token, TypedError } from "thunx"
 
 // Define service tokens
 class UserService extends Token("UserService")<{
@@ -104,7 +104,7 @@ const runnable: Program<string, NetworkError, never> = program.provide(apiProvid
 The `Shell` is your entry point for creating programs. Use `x` (the default shell) or create your own.
 
 ```typescript
-import { x } from "tryz"
+import { x } from "thunx"
 
 // Create programs with .try()
 const program = x.try(() => "hello")
@@ -254,22 +254,22 @@ const any = x.any([primary, fallback1, fallback2])
 const race = x.race([fast, slow])
 ```
 
-## Why tryz?
+## Why thunx?
 
-| Feature                | `tryz` | `Promise` | `effect` |
-| ---------------------- | ------ | --------- | -------- |
-| Typed errors           | ✅     | ❌        | ✅       |
-| Typed dependencies     | ✅     | ❌        | ✅       |
-| Bundle size            | ~2KB   | 0         | ~25KB+   |
-| Learning curve         | Low    | None      | High     |
-| Async/await compatible | ✅     | ✅        | ✅       |
+| Feature                | `thunx` | `Promise` | `effect` |
+| ---------------------- | ------- | --------- | -------- |
+| Typed errors           | ✅      | ❌        | ✅       |
+| Typed dependencies     | ✅      | ❌        | ✅       |
+| Bundle size            | ~2KB    | 0         | ~25KB+   |
+| Learning curve         | Low     | None      | High     |
+| Async/await compatible | ✅      | ✅        | ✅       |
 
-`tryz` sits in the sweet spot: **more safety than promises, less complexity than full effect systems**.
+`thunx` sits in the sweet spot: **more safety than promises, less complexity than full effect systems**.
 
 ## Documentation
 
-📖 [Full Documentation](https://tryz.run)
+📖 [Full Documentation](https://thunx.run)
 
 ## License
 
-[MIT](./packages/tryz/license) © [Matthew Wagerfield](https://github.com/wagerfield)
+[MIT](./packages/thunx/license) © [Matthew Wagerfield](https://github.com/wagerfield)

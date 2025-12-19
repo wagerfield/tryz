@@ -1,4 +1,4 @@
-# tryz Specification
+# `thunx` Specification
 
 > Lean, type-safe error handling and dependency injection with a `Promise`-like API.
 
@@ -6,16 +6,16 @@
 
 ## Introduction
 
-`tryz` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Program`. Programs are lazy computations that track:
+`thunx` provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Program`. Programs are lazy computations that track:
 
-- `T` — the success value type
+- `T` — success value type
 - `E` — possible error type
 - `R` — required dependency type (must be `never` to run)
 
 ```ts
-Program<User | null, FetchError, UserService>
-//      ↑            ↑           ↑
-//      T            E           R
+Program<User, FetchError, UserService>
+//      ↑     ↑           ↑
+//      T     E           R
 ```
 
 Unlike `Promises` which are _eagerly_ executed, `Programs` are thunks (zero-argument functions) that are _lazily_ executed.
@@ -34,7 +34,7 @@ Thunks defer execution, enabling composition, observation, instrumentation, and 
 
 ## 1. `Program`
 
-### 2.1 Static Methods
+### 1.1 Static Methods
 
 | Method                         | Description                     |
 | ------------------------------ | ------------------------------- |
@@ -106,11 +106,11 @@ Program.all(programs, { concurrency: 5 })
 
 #### `Program.any`
 
-Returns first successful result.
+Returns first successful result. If all programs fail, returns an `AggregateError` containing all errors.
 
 ```ts
 Program.any([fetchFromCache(id), fetchFromDb(id)])
-// Program<User, CacheError | DbError, ...>
+// Program<User, AggregateError<CacheError | DbError>, ...>
 ```
 
 #### `Program.race`
@@ -139,7 +139,7 @@ await Program.run(program, { unwrap: true }) // throws on error, returns T
 
 ---
 
-### 2.2 Instance Methods
+### 1.2 Instance Methods
 
 | Method                               | Description                   |
 | ------------------------------------ | ----------------------------- |
@@ -218,12 +218,14 @@ program.tap({
 
 #### `program.span`
 
-Adds a tracing span.
+Adds a tracing span. Requires a `Tracer` token to be provided before running.
 
 ```ts
 program.span("fetchUser", { userId: id })
 // Program<T, E, R | Tracer>
 ```
+
+> The `Tracer` token must be provided via a `Provider`. See the Tracer section for implementation details.
 
 #### `program.retry`
 
@@ -285,11 +287,12 @@ Program.gen(function* () {
 
 ### Built-in Errors
 
-| Error             | Purpose             |
-| ----------------- | ------------------- |
-| `UnexpectedError` | Unexpected errors   |
-| `TimeoutError`    | Timeout exceeded    |
-| `AbortError`      | Cancelled operation |
+| Error             | Purpose                              |
+| ----------------- | ------------------------------------ |
+| `UnexpectedError` | Unexpected errors                    |
+| `AggregateError`  | Collection of errors (`Program.any`) |
+| `TimeoutError`    | Timeout exceeded                     |
+| `AbortError`      | Cancelled operation                  |
 
 ---
 
@@ -510,7 +513,7 @@ else console.error(result.error)
 
 ## Appendix: Comparison with Effect
 
-| Concept           | Effect                          | tryz                      |
+| Concept           | Effect                          | thunx                     |
 | ----------------- | ------------------------------- | ------------------------- |
 | Core type         | `Effect<A, E, R>`               | `Program<T, E, R>`        |
 | Lift value        | `Effect.succeed`                | `Program.from`            |

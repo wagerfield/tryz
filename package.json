@@ -32,7 +32,7 @@
     "@changesets/cli": "2.29.8",
     "@commitlint/cli": "20.1.0",
     "@commitlint/config-conventional": "20.0.0",
-    "@tryz/tsconfig": "workspace:*",
+    "@thunx/tsconfig": "workspace:*",
     "lefthook": "2.0.4",
     "prettier": "3.7.3",
     "turbo": "2.6.1",

@@ -1,3 +1,3 @@
 {
-  "extends": "@tryz/tsconfig/base.tsconfig.json"
+  "extends": "@thunx/tsconfig/base.tsconfig.json"
 }

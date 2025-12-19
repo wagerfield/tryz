@@ -1,7 +1,7 @@
 {
   "private": true,
   "type": "module",
-  "name": "@tryz/docs",
+  "name": "@thunx/docs",
   "version": "0.0.0",
   "scripts": {
     "dev": "vitepress dev",

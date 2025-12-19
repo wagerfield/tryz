@@ -3,7 +3,7 @@
 layout: home
 
 hero:
-  name: "tryz"
+  name: "thunx"
   text: "Compose programs with errors and dependencies tracked at the type level."
   tagline: Zero runtime surprises
   actions:

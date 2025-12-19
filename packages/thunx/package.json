@@ -1,8 +1,8 @@
 {
-  "name": "tryz",
+  "name": "thunx",
   "version": "0.0.1",
   "description": "Compose programs with errors and dependencies tracked at the type level. Zero runtime surprises.",
-  "homepage": "https://tryz.run",
+  "homepage": "https://thunx.run",
   "license": "MIT",
   "author": {
     "name": "Matthew Wagerfield",
@@ -11,10 +11,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/wagerfield/tryz.git",
-    "directory": "packages/tryz"
+    "url": "https://github.com/wagerfield/thunx.git",
+    "directory": "packages/thunx"
   },
-  "bugs": "https://github.com/wagerfield/tryz/issues",
+  "bugs": "https://github.com/wagerfield/thunx/issues",
   "keywords": [
     "composable",
     "type-safe",

@@ -1,14 +1,14 @@
-# tryz
+# thunx
 
 **Type-safe, composable programs with tracked errors and dependencies.**
 
-[![npm version](https://img.shields.io/npm/v/tryz.svg)](https://www.npmjs.com/package/tryz)
+[![npm version](https://img.shields.io/npm/v/thunx.svg)](https://www.npmjs.com/package/thunx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
 ## Overview
 
-`tryz` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises.
+`thunx` is a lightweight TypeScript library for building programs where **errors** and **dependencies** are tracked at the type level. No more runtime surprises.
 
 ## Features
 
@@ -22,13 +22,13 @@
 ## Installation
 
 ```bash
-npm install tryz
+npm install thunx
 ```
 
 ## Quick Start
 
 ```typescript
-import { x, Token, TypedError } from "tryz"
+import { x, Token, TypedError } from "thunx"
 
 // Define a service token
 class UserService extends Token("UserService")<{
@@ -64,7 +64,7 @@ if (result.success) {
 
 ## Documentation
 
-📖 [Full Documentation](https://tryz.run)
+📖 [Full Documentation](https://thunx.run)
 
 ## License
 
