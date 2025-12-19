@@ -158,12 +158,12 @@ await Thunk.run(thunk, { unwrap: true }) // throws on error, returns T
 Transforms the success value. Return a `TypedError` to fail.
 
 ```ts
-thunk.then((v) => v.name)
+thunk.then((value) => value.name)
 // Thunk<string, E, R>
 
-thunk.then((v) => {
-  if (!v) return new NotFoundError()
-  return v.name
+thunk.then((value) => {
+  if (!value) return new NotFoundError()
+  return value.name
 })
 // Thunk<string, E | NotFoundError, R>
 ```
@@ -173,15 +173,15 @@ thunk.then((v) => {
 Handles errors. Return a `TypedError` to re-throw.
 
 ```ts
-thunk.catch((e) => fallback)
+thunk.catch((error) => fallback)
 // Thunk<T | Fallback, never, R>
 
-thunk.catch("NotFoundError", (e) => null)
+thunk.catch("NotFoundError", (error) => null)
 // Thunk<T | null, Exclude<E, NotFoundError>, R>
 
 thunk.catch({
-  NotFoundError: (e) => null,
-  TimeoutError: (e) => new RetryError(),
+  NotFoundError: (error) => null,
+  TimeoutError: (error) => new RetryError(),
 })
 // Thunk<T | null, Exclude<E, ...> | RetryError, R>
 ```
@@ -208,11 +208,11 @@ thunk.pipe(withRetry)
 Runs side effects without changing the value.
 
 ```ts
-thunk.tap((v) => console.log(v))
+thunk.tap((value) => console.log(value))
 
 thunk.tap({
-  value: (v) => console.log(v),
-  error: (e) => console.error(e),
+  value: (value) => console.log(value),
+  error: (error) => console.error(error),
 })
 ```
 
@@ -273,9 +273,9 @@ class NotFoundError extends TypedError("NotFoundError")<{
 Return or yield to fail — no `throw` needed:
 
 ```ts
-thunk.then((v) => {
-  if (!v) return new NotFoundError({ resource: "user" })
-  return v
+thunk.then((value) => {
+  if (!value) return new NotFoundError({ resource: "user" })
+  return value
 })
 
 Thunk.gen(function* () {
@@ -312,10 +312,10 @@ class UserService extends Token("UserService")<{
 
 ```ts
 // In generators
-const svc = yield * UserService
+const userService = yield * UserService
 
 // Chain directly
-UserService.then((svc) => svc.getUser(id))
+UserService.then((service) => service.getUser(id))
 // Thunk<User, FetchError, UserService>
 
 // In Thunk.all
@@ -333,7 +333,7 @@ const provider = Provider.provide(ConfigService, () => ({
   getUser: (id) =>
     Thunk.try({
       try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`),
-      catch: (e) => new FetchError({ cause: e }),
+      catch: (error) => new FetchError({ cause: error }),
     }),
 }))
 
@@ -495,10 +495,10 @@ const appProvider = Provider.provide(ConfigService, () => ({
   getUser: (id) =>
     Thunk.try({
       try: () =>
-        fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`).then((r) =>
-          r.json(),
+        fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`).then((response) =>
+          response.json(),
         ),
-      catch: (e) => new FetchError({ cause: e }),
+      catch: (error) => new FetchError({ cause: error }),
     }),
 }))
 
