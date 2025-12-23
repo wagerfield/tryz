@@ -1,4 +1,13 @@
 {
   "version": "0.2",
-  "words": ["lefthook", "retryability", "thunx", "vitepress", "yieldable"]
+  "words": [
+    "lefthook",
+    "nullary",
+    "retryability",
+    "thenable",
+    "thenables",
+    "thunx",
+    "vitepress",
+    "yieldable"
+  ]
 }
