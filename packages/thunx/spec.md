@@ -321,69 +321,29 @@ new NotFoundError({
 
 ## 3. `Token`
 
-`Tokens` define injectable dependencies. A `Token` class is a `Thunk` — yielding it returns the service instance and adds the `Token` to `R`.
+Tokens define injectable dependencies with type `Thunk<Shape, never, Token>`.
 
-### Definition
-
-Shape is defined via `declare` properties in the class body:
+Using a `Token` (via `.then()` or `yield*`) returns its `Shape` and adds `Token` to `R`.
 
 ```typescript
 class UserService extends Token("UserService") {
+  declare readonly baseUrl: string
   declare readonly getUser: (id: string) => Thunk<User, FetchError, never>
-  declare readonly listUsers: () => Thunk<User[], never, never>
 }
 
-// Simple tokens with primitive values
-class ConfigService extends Token("ConfigService") {
-  declare readonly apiUrl: string
-  declare readonly timeout: number
-}
-```
-
-### Usage
-
-```typescript
-// In generators
-Thunk.gen(function* () {
-  const service = yield* UserService
-  return service.getUser(userId)
-})
-// Thunk<User, FetchError, UserService>
-
-// Chain directly
+// Chain with .then()
 UserService.then((service) => service.getUser(id))
 // Thunk<User, FetchError, UserService>
 
-// In Thunk.all
-Thunk.all({
-  user: UserService,
-  config: ConfigService,
-}).then(({ user, config }) => { ... })
+// Yield in generators
+Thunk.gen(function* () {
+  const service = yield* UserService // R += UserService
+  const user = service.getUser(userId) // E += FetchError
+  return user // T += User
+}) // Thunk<User, FetchError, UserService>
 ```
 
-### Providing
-
-`Tokens` are provided via `Provider` instances. The factory must return the full shape matching the declared properties:
-
-```typescript
-const provider = Provider.provide(ConfigService, () => ({
-  apiUrl: "https://...",
-  timeout: 5000,
-})).provide(UserService, (ctx) => ({
-  getUser: (id) =>
-    Thunk.try({
-      try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`),
-      catch: (error) => new FetchError({ cause: error }),
-    }),
-  listUsers: () =>
-    Thunk.try({
-      try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users`),
-      catch: (error) => new FetchError({ cause: error }),
-    }),
-}))
-
-thunk.provide(provider)
-```
+Tokens are provided via [`Provider`](#5-provider).
 
 ---
 
