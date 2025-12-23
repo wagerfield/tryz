@@ -1,12 +1,6 @@
-# `thunx` Specification
+# Thunx Specification
 
-> Lean, type-safe error handling and dependency injection with a Promise-like API.
-
----
-
-## Introduction
-
-`thunx` provides type-safe error handling and dependency injection through a familiar Promise-like interface called a Thunk.
+Thunx provides type-safe error handling and dependency injection through a familiar Promise-like interface called a Thunk.
 
 Thunks differ from Promises in two key ways:
 
@@ -16,7 +10,7 @@ Thunks differ from Promises in two key ways:
 - `E` — possible error type
 - `R` — required dependency type (must be `never` to run)
 
-```ts
+```typescript
 Thunk<User, FetchError, UserService>
 //    ↑     ↑           ↑
 //    T     E           R
@@ -24,7 +18,7 @@ Thunk<User, FetchError, UserService>
 
 **2. Lazy execution** — Promises execute eagerly. Thunks are nullary functions that defer computation until explicitly run.
 
-```ts
+```typescript
 // Promise — executes immediately
 const promise = fetch(url) // already running
 
@@ -33,7 +27,7 @@ const thunk = Thunk.try(() => fetch(url)) // not running yet
 await Thunk.run(thunk) // executes now
 ```
 
-Lazy execution enables composition, observation, instrumentation, and resilience through retryability.
+Lazy execution enables composition, observation, and resilience through retryability.
 
 ### Design Principles
 
@@ -63,7 +57,7 @@ Lazy execution enables composition, observation, instrumentation, and resilience
 
 Lifts a value, `Promise`, or `Thunk` into a new `Thunk`.
 
-```ts
+```typescript
 Thunk.from(42) // Thunk<number, never, never>
 Thunk.from(fetch(url)) // Thunk<Response, never, never>
 Thunk.from(existingThunk) // Thunk<T, E, R>
@@ -73,7 +67,7 @@ Thunk.from(existingThunk) // Thunk<T, E, R>
 
 Creates a `Thunk` from a factory with optional error handling.
 
-```ts
+```typescript
 Thunk.try(() => 42)
 // Thunk<number, never, never>
 
@@ -93,7 +87,7 @@ Thunk.try((ctx) => fetch(url, { signal: ctx.signal }))
 
 Composes `Thunks` using generator syntax. Yield `Thunks`, `Tokens` and `TypedErrors`.
 
-```ts
+```typescript
 Thunk.gen(function* () {
   const auth = yield* AuthService // R += AuthService
   const user = yield* fetchUser(auth.userId) // E += FetchError
@@ -107,7 +101,7 @@ Thunk.gen(function* () {
 
 Runs `Thunks` concurrently and collects all results.
 
-```ts
+```typescript
 Thunk.all([fetchUser(id), fetchPosts(id)]) // array
 // Thunk<[User, Post[]], UserError | PostError, never>
 
@@ -121,7 +115,7 @@ Thunk.all(thunks, { concurrency: 5 })
 
 Returns first successful result. If all thunks fail, returns an `AggregateError` containing all errors.
 
-```ts
+```typescript
 Thunk.any([fetchFromCache(id), fetchFromDb(id)])
 // Thunk<User, AggregateError<CacheError | DbError>, ...>
 ```
@@ -130,7 +124,7 @@ Thunk.any([fetchFromCache(id), fetchFromDb(id)])
 
 Returns first to settle (success or failure).
 
-```ts
+```typescript
 Thunk.race([fetchData(), timeout(5000)])
 // Thunk<Data, FetchError | TimeoutError, never>
 ```
@@ -139,7 +133,7 @@ Thunk.race([fetchData(), timeout(5000)])
 
 Executes `Thunk<T, E, R>` and returns `Promise<Result<T, E>>`. Requires `R = never`.
 
-```ts
+```typescript
 const result = await Thunk.run(thunk) // Result<T, E>
 
 if (result.ok) console.log(result.value)
@@ -170,7 +164,7 @@ await Thunk.run(thunk, { unwrap: true }) // throws on error, returns T
 
 Transforms the success value. Return a `TypedError` to fail.
 
-```ts
+```typescript
 thunk.then((value) => value.name)
 // Thunk<string, E, R>
 
@@ -185,7 +179,7 @@ thunk.then((value) => {
 
 Handles errors. Return a `TypedError` to re-throw.
 
-```ts
+```typescript
 thunk.catch((error) => fallback)
 // Thunk<T | Fallback, never, R>
 
@@ -203,7 +197,7 @@ thunk.catch({
 
 Runs cleanup regardless of outcome.
 
-```ts
+```typescript
 thunk.finally(() => cleanup())
 ```
 
@@ -211,7 +205,7 @@ thunk.finally(() => cleanup())
 
 Applies a transformation function.
 
-```ts
+```typescript
 const withRetry = <T, E, R>(t: Thunk<T, E, R>) => t.retry(3)
 const orNull = <T, E, R>(t: Thunk<T, E, R>) => t.catch((error) => null)
 
@@ -222,7 +216,7 @@ thunk.pipe(withRetry).pipe(orNull) // Thunk<T | null, never, R>
 
 Executes side effects, passing `T` through unchanged. Callbacks may return `Thunks`, merging their `E` and `R` channels.
 
-```ts
+```typescript
 thunk.tap((value) => console.log(value))
 
 thunk.tap({
@@ -236,7 +230,7 @@ thunk.tap({
 
 Adds a tracing span. Requires a `Tracer` token to be provided before running.
 
-```ts
+```typescript
 thunk.span("fetchUser", { userId: id })
 // Thunk<T, E, R | Tracer>
 ```
@@ -247,7 +241,7 @@ thunk.span("fetchUser", { userId: id })
 
 Retries on failure.
 
-```ts
+```typescript
 // Simple — retry 3 times with no delay
 thunk.retry(3)
 
@@ -271,7 +265,7 @@ thunk.retry({
 
 Adds a timeout.
 
-```ts
+```typescript
 thunk.timeout(5000)
 // Thunk<T, E | TimeoutError, R>
 ```
@@ -280,7 +274,7 @@ thunk.timeout(5000)
 
 Satisfies requirements with a `Provider`.
 
-```ts
+```typescript
 thunk.provide(appProvider)
 // Thunk<T, E, Exclude<R, ProvidedTokens>>
 ```
@@ -291,20 +285,27 @@ thunk.provide(appProvider)
 
 All errors in channel `E` are `TypedError` instances with a typed `name` for discrimination.
 
-### Definition
+```typescript
+// Simple error (no payload)
+class UnauthorizedError extends TypedError("UnauthorizedError") {}
 
-`TypedError(name)<OptionalShape>` returns a base class parameterized by a props type:
-
-```ts
+// Error with payload
 class NotFoundError extends TypedError("NotFoundError")<{
   readonly resource: string
 }> {}
+```
 
-// Payload-less errors omit the type parameter
-class UnauthorizedError extends TypedError("UnauthorizedError") {}
+All errors accept optional `message` and `cause` properties:
 
-// Use cause to wrap underlying errors
-new FetchError({ resource: "/users", cause: error })
+```typescript
+new UnauthorizedError({
+  message: "Access denied", // optional
+  cause: error, // optional
+})
+new NotFoundError({
+  resource: "users/123", // required
+  message: "User 123 not found", // optional
+})
 ```
 
 ### Built-in Errors
@@ -320,41 +321,63 @@ new FetchError({ resource: "/users", cause: error })
 
 ## 3. `Token`
 
-`Tokens` define injectable dependencies. A `Token` class **is a `Thunk`** — yielding it returns the service instance and adds the `Token` to `R`.
+`Tokens` define injectable dependencies. A `Token` class is a `Thunk` — yielding it returns the service instance and adds the `Token` to `R`.
 
 ### Definition
 
-```ts
-class UserService extends Token("UserService")<{
-  readonly getUser: (id: string) => Thunk<User, FetchError, never>
-}> {}
+Shape is defined via `declare` properties in the class body:
+
+```typescript
+class UserService extends Token("UserService") {
+  declare readonly getUser: (id: string) => Thunk<User, FetchError, never>
+  declare readonly listUsers: () => Thunk<User[], never, never>
+}
+
+// Simple tokens with primitive values
+class ConfigService extends Token("ConfigService") {
+  declare readonly apiUrl: string
+  declare readonly timeout: number
+}
 ```
 
 ### Usage
 
-```ts
+```typescript
 // In generators
-const userService = yield * UserService
+Thunk.gen(function* () {
+  const service = yield* UserService
+  return service.getUser(userId)
+})
+// Thunk<User, FetchError, UserService>
 
 // Chain directly
 UserService.then((service) => service.getUser(id))
 // Thunk<User, FetchError, UserService>
 
 // In Thunk.all
-Thunk.all({ user: UserService, config: ConfigService })
+Thunk.all({
+  user: UserService,
+  config: ConfigService,
+}).then(({ user, config }) => { ... })
 ```
 
 ### Providing
 
-`Tokens` are provided via `Provider` instances:
+`Tokens` are provided via `Provider` instances. The factory must return the full shape matching the declared properties:
 
-```ts
+```typescript
 const provider = Provider.provide(ConfigService, () => ({
   apiUrl: "https://...",
+  timeout: 5000,
 })).provide(UserService, (ctx) => ({
   getUser: (id) =>
     Thunk.try({
       try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`),
+      catch: (error) => new FetchError({ cause: error }),
+    }),
+  listUsers: () =>
+    Thunk.try({
+      try: () => fetch(`${ctx.get(ConfigService).apiUrl}/users`),
       catch: (error) => new FetchError({ cause: error }),
     }),
 }))
@@ -368,7 +391,7 @@ thunk.provide(provider)
 
 Execution context passed to factories. Two variants exist:
 
-```ts
+```typescript
 // Base context (Thunk.try, Provider.provide static)
 interface Context {
   readonly signal: AbortSignal
@@ -406,7 +429,7 @@ Bundles `Token` provisions with inter-token dependencies.
 
 ### Usage
 
-```ts
+```typescript
 // Create with static method (factory receives Context)
 const configProvider = Provider.provide(ConfigService, (ctx) => ({
   apiUrl: "https://...",
@@ -436,7 +459,7 @@ thunk.provide(appProvider)
 
 The return type of `Thunk.run`.
 
-```ts
+```typescript
 type Result<T, E> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E }
@@ -450,19 +473,19 @@ The `Tracer` token enables observability via the `thunk.span()` method. Provide 
 
 ### Definition
 
-```ts
-class Tracer extends Token("Tracer")<{
-  readonly span: <T>(
+```typescript
+class Tracer extends Token("Tracer") {
+  declare readonly span: <T>(
     name: string,
     attributes: Record<string, unknown>,
     fn: () => Promise<T>,
   ) => Promise<T>
-}> {}
+}
 ```
 
 ### Usage
 
-```ts
+```typescript
 // Add a span to a thunk
 fetchUser(id).span("fetchUser", { userId: id })
 // Thunk<User, FetchError, Tracer>
@@ -470,7 +493,7 @@ fetchUser(id).span("fetchUser", { userId: id })
 
 ### Providing
 
-```ts
+```typescript
 // Simple console tracer
 const consoleTracer = Provider.provide(Tracer, () => ({
   span: async (name, attributes, fn) => {
@@ -518,14 +541,14 @@ Values returned from `then`, `catch`, or yielded in `gen`:
 
 ### Channel Accumulation
 
-```ts
+```typescript
 a.then(() => b)
 // Thunk<Tb, Ea | Eb, Ra | Rb>
 ```
 
 ### Providing Removes from R
 
-```ts
+```typescript
 thunk.provide(partialProvider) // R -= provided tokens
 thunk.provide(fullProvider) // R = never → runnable
 ```
@@ -534,19 +557,23 @@ thunk.provide(fullProvider) // R = never → runnable
 
 ## Example
 
-```ts
-// Tokens
-class ConfigService extends Token("ConfigService")<{
-  readonly apiUrl: string
-  readonly timeout: number
-}> {}
+```typescript
+// Tokens (use declare for shape)
+class ConfigService extends Token("ConfigService") {
+  declare readonly apiUrl: string
+  declare readonly timeout: number
+}
 
-class UserService extends Token("UserService")<{
-  readonly getUser: (id: string) => Thunk<User, FetchError, never>
-}> {}
+class UserService extends Token("UserService") {
+  declare readonly getUser: (id: string) => Thunk<User, FetchError, never>
+}
 
-// Errors
+// Errors (use generic for type-safe constructor)
 class UnauthorizedError extends TypedError("UnauthorizedError") {}
+
+class FetchError extends TypedError("FetchError")<{
+  readonly cause: unknown
+}> {}
 
 // Thunk
 const getUserProfile = (id: string) =>
@@ -559,7 +586,7 @@ const getUserProfile = (id: string) =>
   })
 // Thunk<UserProfile, FetchError | TimeoutError | UnauthorizedError, ConfigService | UserService>
 
-// Provider
+// Provider (must provide full shape matching declared properties)
 const appProvider = Provider.provide(ConfigService, () => ({
   apiUrl: "https://api.example.com",
   timeout: 5000,
