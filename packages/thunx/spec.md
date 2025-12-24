@@ -349,68 +349,74 @@ Tokens are provided via [`Provider`](#5-provider).
 
 ## 4. `Context`
 
-Execution context passed to factories. Two variants exist:
+Context is passed to `Thunk.try` and `Provider.provide` factories:
 
 ```typescript
-// Base context (Thunk.try, Provider.provide static)
+// Thunk.try and Provider.provide static methods
 interface Context {
   readonly signal: AbortSignal
 }
 
-// Extended context (Provider .provide instance method)
+// Provider .provide instance method
 interface ProviderContext<C> extends Context {
   get<T extends C>(token: TokenClass<T>): TokenInstance<T>
 }
 ```
 
-The `signal` originates from `Thunk.run` options (or an internal default). The `get` method is only available when prior `Tokens` exist in the `Provider` chain.
+The `signal` originates from `Thunk.run` options. The `get` method is available when prior Tokens exist in the `Provider` chain.
 
 ---
 
 ## 5. `Provider`
 
-Bundles `Token` provisions with inter-token dependencies.
+Providers bundle `Token` implementations with type `Provider<C, E>` where `C = Context` and `E = Errors`.
+
+Chained `.provide` calls accumulate tokens in `C`, errors in `E`, and can access prior tokens via `ctx.get(Token)`.
+
+Like Thunks, Providers are immutable; each method returns a new `Provider` instance.
 
 ### Static Methods
 
 | Method             | Description                    |
 | ------------------ | ------------------------------ |
-| `Provider.provide` | Create provider with one token |
-| `Provider.merge`   | Combine multiple providers     |
+| `Provider.provide` | Create provider with token     |
+| `Provider.merge`   | Create from multiple providers |
 
 ### Instance Methods
 
-| Method     | Description                         |
-| ---------- | ----------------------------------- |
-| `.provide` | Add token (can access prior tokens) |
-| `.merge`   | Combine with another provider       |
-| `.pick`    | Subset with selected tokens         |
-| `.omit`    | Subset excluding specified tokens   |
+| Method     | Description                           |
+| ---------- | ------------------------------------- |
+| `.provide` | Chain token (can access prior tokens) |
+| `.merge`   | Combine with another provider         |
+| `.pick`    | Subset with selected tokens           |
+| `.omit`    | Subset excluding tokens               |
 
 ### Usage
 
 ```typescript
-// Create with static method (factory receives Context)
-const configProvider = Provider.provide(ConfigService, (ctx) => ({
-  apiUrl: "https://...",
+// Create with static method
+const configProvider = Provider.provide(ConfigService, () => ({
+  apiUrl: "https://api.example.com",
+  apiToken: "super_secret_token",
 }))
+// Provider<ConfigService, never>
 
-// Chain with instance method (factory receives ProviderContext<C>)
-const appProvider = Provider.provide(ConfigService, () => ({
-  apiUrl: "https://...",
-}))
-  .provide(DbService, (ctx) => createDb(ctx.get(ConfigService).apiUrl))
-  .provide(UserService, (ctx) => createUserService(ctx.get(DbService)))
+// Chain with instance method
+const databaseProvider = configProvider.provide(DatabaseService, (ctx) =>
+  createDatabaseService(ctx.get(ConfigService)),
+)
+// Provider<ConfigService | DatabaseService, DatabaseError>
+
+// Provide to thunk — subtracts C from R, merges E
+thunk.provide(databaseProvider)
+// Thunk<T, E | ConnectionError, Exclude<R, ConfigService | DatabaseService>>
 
 // Combine providers
-const fullProvider = Provider.merge(authProvider, appProvider)
+const combined = Provider.merge(authProvider, userProvider)
 
 // Subset providers
-const minimalProvider = fullProvider.pick(ConfigService, DbService)
-const withoutAuth = fullProvider.omit(AuthService)
-
-thunk.provide(appProvider)
-// Thunk<T, E, Exclude<R, ConfigService | DbService | UserService>>
+const selected = combined.pick(ConfigService, UserService)
+const excluded = combined.omit(AuthService)
 ```
 
 ---
