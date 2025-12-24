@@ -519,69 +519,54 @@ thunk.provide(fullProvider) // R = never → runnable
 ## Example
 
 ```typescript
-// Tokens (use declare for shape)
-class ConfigService extends Token("ConfigService") {
-  declare readonly apiUrl: string
-  declare readonly timeout: number
-}
-
+// Token
 class UserService extends Token("UserService") {
-  declare readonly getUser: (id: string) => Thunk<User, FetchError, never>
+  declare readonly getUser: (id: string) => Thunk<User, NotFoundError, never>
 }
 
-// Errors (use generic for type-safe constructor)
-class UnauthorizedError extends TypedError("UnauthorizedError") {}
-
-class FetchError extends TypedError("FetchError")<{
-  readonly cause: unknown
+// Error
+class NotFoundError extends TypedError("NotFoundError")<{
+  readonly resource: string
+  readonly id: string
 }> {}
 
 // Thunk
-const getUserProfile = (id: string) =>
-  Thunk.gen(function* () {
-    const config = yield* ConfigService
-    const userService = yield* UserService
-    const user = yield* userService.getUser(id).timeout(config.timeout)
-    if (!user.active) yield* new UnauthorizedError()
-    return { id: user.id, name: user.name, email: user.email }
-  })
-// Thunk<UserProfile, FetchError | TimeoutError | UnauthorizedError, ConfigService | UserService>
+const getUser = (id: string) =>
+  UserService.then((service) => service.getUser(id))
+// Thunk<User, NotFoundError, UserService>
 
-// Provider (must provide full shape matching declared properties)
-const appProvider = Provider.provide(ConfigService, () => ({
-  apiUrl: "https://api.example.com",
-  timeout: 5000,
-})).provide(UserService, (ctx) => ({
+// Provider
+const provider = Provider.provide(UserService, () => ({
   getUser: (id) =>
     Thunk.try({
-      try: () =>
-        fetch(`${ctx.get(ConfigService).apiUrl}/users/${id}`).then((response) =>
-          response.json(),
-        ),
-      catch: (error) => new FetchError({ cause: error }),
+      try: () => fetchUser(id),
+      catch: (error) => new NotFoundError({ resource: "user", id }),
     }),
 }))
 
 // Execute
-const result = await Thunk.run(getUserProfile("123").provide(appProvider))
+const result = await Thunk.run(getUser("123").provide(provider))
 
-if (result.ok) console.log(result.value)
-else console.error(result.error)
+if (result.ok) {
+  console.log(result.value) // User
+} else {
+  console.error(result.error.name) // "NotFoundError"
+}
 ```
 
 ---
 
 ## Appendix: Comparison with Effect
 
-| Concept           | Effect                          | thunx                     |
-| ----------------- | ------------------------------- | ------------------------- |
-| Core type         | `Effect<A, E, R>`               | `Thunk<T, E, R>`          |
-| Lift value        | `Effect.succeed`                | `Thunk.from`              |
-| Create from thunk | `Effect.try`                    | `Thunk.try`               |
-| Fail              | `Effect.fail`                   | `return new TypedError()` |
-| Transform         | `Effect.map` / `Effect.flatMap` | `thunk.then`              |
-| Handle errors     | `Effect.catchTag`               | `thunk.catch`             |
-| Side effects      | `Effect.tap`                    | `thunk.tap`               |
-| Run               | `Effect.runPromise`             | `Thunk.run`               |
-| Generator syntax  | `Effect.gen`                    | `Thunk.gen`               |
-| Service access    | `yield* Tag`                    | `yield* Token`            |
+| Concept           | Effect              | Thunx                     |
+| ----------------- | ------------------- | ------------------------- |
+| Core type         | `Effect<A, E, R>`   | `Thunk<T, E, R>`          |
+| Lift value        | `Effect.succeed`    | `Thunk.from`              |
+| Create from thunk | `Effect.try`        | `Thunk.try`               |
+| Fail              | `Effect.fail`       | `return new TypedError()` |
+| Transform         | `Effect.andThen`    | `thunk.then`              |
+| Handle errors     | `Effect.catchTag`   | `thunk.catch`             |
+| Side effects      | `Effect.tap`        | `thunk.tap`               |
+| Run               | `Effect.runPromise` | `Thunk.run`               |
+| Generator syntax  | `Effect.gen`        | `Thunk.gen`               |
+| Service access    | `yield* Tag`        | `yield* Token`            |
