@@ -423,12 +423,22 @@ const excluded = combined.omit(AuthService)
 
 ## 6. `Result`
 
-The return type of `Thunk.run`.
+`Thunk.run` returns `Promise<Result<T, E>>`:
 
 ```typescript
 type Result<T, E> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E }
+```
+
+`Result` is a discriminated union — check `ok` to access `value` or `error`:
+
+```typescript
+if (result.ok) {
+  result.value // T
+} else {
+  result.error // E
+}
 ```
 
 ---
