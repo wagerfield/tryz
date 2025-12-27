@@ -1,6 +1,6 @@
 # Thunx Specification
 
-Thunx provides type-safe error handling and dependency injection through a familiar Promise-like interface called a Thunk.
+Thunx provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Thunk`.
 
 Thunks differ from Promises in two key ways:
 
@@ -16,7 +16,7 @@ Thunk<User, FetchError, UserService>
 //    T     E           D
 ```
 
-**2. Lazy execution** — Promises execute eagerly. Thunks are nullary (zero-argument) functions that defer computation until explicitly run.
+**2. Lazy execution** — Promises execute eagerly. Thunks are nullary functions that defer computation until explicitly run.
 
 ```typescript
 // Promise — executes immediately
@@ -35,7 +35,7 @@ Lazy execution enables composition, observation, and resilience through retryabi
 | ----------------------- | ----------------------------------------------------------------------- |
 | **Errors as values**    | Return `TypedError` instances to fail — no `throw` statements           |
 | **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, D>` uniformly |
-| **Minimal API surface** | 7 static methods; everything else chains from instances                 |
+| **Minimal API surface** | 6 static methods, 9 chainable instance methods                          |
 
 ---
 
@@ -43,25 +43,14 @@ Lazy execution enables composition, observation, and resilience through retryabi
 
 ### 1.1 Static Methods
 
-| Method                     | Description                   |
-| -------------------------- | ----------------------------- |
-| [`Thunk.from`](#thunkfrom) | Lift value, promise, or thunk |
-| [`Thunk.try`](#thunktry)   | Create from factory           |
-| [`Thunk.gen`](#thunkgen)   | Compose via generators        |
-| [`Thunk.all`](#thunkall)   | Concurrent — collect all      |
-| [`Thunk.any`](#thunkany)   | Concurrent — first success    |
-| [`Thunk.race`](#thunkrace) | Concurrent — first to settle  |
-| [`Thunk.run`](#thunkrun)   | Execute thunk                 |
-
-#### `Thunk.from`
-
-Lifts a value, `Promise`, or `Thunk` into a new `Thunk`.
-
-```typescript
-Thunk.from(42) // Thunk<number, never, never>
-Thunk.from(fetch(url)) // Thunk<Response, never, never>
-Thunk.from(existingThunk) // Thunk<T, E, D>
-```
+| Method                     | Description                  |
+| -------------------------- | ---------------------------- |
+| [`Thunk.try`](#thunktry)   | Create from factory          |
+| [`Thunk.gen`](#thunkgen)   | Compose via generators       |
+| [`Thunk.all`](#thunkall)   | Concurrent — collect all     |
+| [`Thunk.any`](#thunkany)   | Concurrent — first success   |
+| [`Thunk.race`](#thunkrace) | Concurrent — first to settle |
+| [`Thunk.run`](#thunkrun)   | Execute thunk                |
 
 #### `Thunk.try`
 
