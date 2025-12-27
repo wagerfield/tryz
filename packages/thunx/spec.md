@@ -369,19 +369,19 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 
 ### Static Methods
 
-| Method             | Description                    |
-| ------------------ | ------------------------------ |
-| `Provider.provide` | Create provider with token     |
-| `Provider.merge`   | Create from multiple providers |
+| Method             | Description                |
+| ------------------ | -------------------------- |
+| `Provider.provide` | Create with initial token  |
+| `Provider.merge`   | Combine multiple providers |
 
 ### Instance Methods
 
-| Method     | Description                           |
-| ---------- | ------------------------------------- |
-| `.provide` | Chain token (can access prior tokens) |
-| `.merge`   | Combine with another provider         |
-| `.pick`    | Subset with selected tokens           |
-| `.omit`    | Subset excluding tokens               |
+| Method     | Description                         |
+| ---------- | ----------------------------------- |
+| `.provide` | Add token (can access prior tokens) |
+| `.merge`   | Combine with another provider       |
+| `.pick`    | Select specified tokens             |
+| `.omit`    | Exclude specified tokens            |
 
 ### Usage
 
@@ -516,16 +516,16 @@ thunk.provide(fullProvider) // D = never → runnable
 ## Example
 
 ```typescript
-// Token
-class UserService extends Token("UserService") {
-  declare readonly getUser: (id: string) => Thunk<User, NotFoundError, never>
-}
-
 // Error
 class NotFoundError extends TypedError("NotFoundError")<{
   readonly resource: string
   readonly id: string
 }> {}
+
+// Token
+class UserService extends Token("UserService") {
+  declare readonly getUser: (id: string) => Thunk<User, NotFoundError, never>
+}
 
 // Thunk
 const getUser = (id: string) =>
