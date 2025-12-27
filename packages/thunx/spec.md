@@ -4,19 +4,19 @@ Thunx provides type-safe error handling and dependency injection through a famil
 
 Thunks differ from Promises in two key ways:
 
-**1. Richer types** — `Promise<T>` only tracks the success type. `Thunk<T, E, R>` tracks three channels:
+**1. Richer types** — `Promise<T>` only tracks the success type. `Thunk<T, E, D>` tracks three channels:
 
-- `T` — success value type
-- `E` — possible error type
-- `R` — required dependency type (must be `never` to run)
+- `T` — success types
+- `E` — error types
+- `D` — dependency types (must be `never` to run)
 
 ```typescript
 Thunk<User, FetchError, UserService>
 //    ↑     ↑           ↑
-//    T     E           R
+//    T     E           D
 ```
 
-**2. Lazy execution** — Promises execute eagerly. Thunks are nullary functions that defer computation until explicitly run.
+**2. Lazy execution** — Promises execute eagerly. Thunks are nullary (zero-argument) functions that defer computation until explicitly run.
 
 ```typescript
 // Promise — executes immediately
@@ -29,12 +29,12 @@ await Thunk.run(thunk) // executes now
 
 Lazy execution enables composition, observation, and resilience through retryability.
 
-### Design Principles
+## Design Principles
 
 | Principle               | Description                                                             |
 | ----------------------- | ----------------------------------------------------------------------- |
 | **Errors as values**    | Return `TypedError` instances to fail — no `throw` statements           |
-| **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, R>` uniformly |
+| **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, D>` uniformly |
 | **Minimal API surface** | 7 static methods; everything else chains from instances                 |
 
 ---
@@ -60,7 +60,7 @@ Lifts a value, `Promise`, or `Thunk` into a new `Thunk`.
 ```typescript
 Thunk.from(42) // Thunk<number, never, never>
 Thunk.from(fetch(url)) // Thunk<Response, never, never>
-Thunk.from(existingThunk) // Thunk<T, E, R>
+Thunk.from(existingThunk) // Thunk<T, E, D>
 ```
 
 #### `Thunk.try`
@@ -85,13 +85,13 @@ Thunk.try((ctx) => fetch(url, { signal: ctx.signal }))
 
 #### `Thunk.gen`
 
-Composes `Thunks` using generator syntax. Yield `Thunks`, `Tokens` and `TypedErrors`.
+Composes `Thunks` using generator syntax. Yield `Thunks` and `Tokens`. Return `TypedErrors` to fail.
 
 ```typescript
 Thunk.gen(function* () {
-  const auth = yield* AuthService // R += AuthService
+  const auth = yield* AuthService // D += AuthService
   const user = yield* fetchUser(auth.userId) // E += FetchError
-  if (!user.active) yield* new InactiveError() // E += InactiveError
+  if (!user.active) return new InactiveError() // E += InactiveError
   return user // T += User
 })
 // Thunk<User, FetchError | InactiveError, AuthService>
@@ -105,7 +105,7 @@ Runs `Thunks` concurrently and collects all results.
 Thunk.all([fetchUser(id), fetchPosts(id)]) // array
 // Thunk<[User, Post[]], UserError | PostError, never>
 
-Thunk.all({ user: UserService, config: ConfigService }) // object
+Thunk.all({ user: UserService, auth: ConfigService }) // object
 // Thunk<{ user: ..., config: ... }, never, UserService | ConfigService>
 
 Thunk.all(thunks, { concurrency: 5 })
@@ -116,8 +116,8 @@ Thunk.all(thunks, { concurrency: 5 })
 Returns first successful result. If all thunks fail, returns an `AggregateError` containing all errors.
 
 ```typescript
-Thunk.any([fetchFromCache(id), fetchFromDb(id)])
-// Thunk<User, AggregateError<CacheError | DbError>, ...>
+Thunk.any([fetchFromCache(id), fetchFromDatabase(id)])
+// Thunk<User, AggregateError<CacheError | DatabaseError>, ...>
 ```
 
 #### `Thunk.race`
@@ -131,7 +131,7 @@ Thunk.race([fetchData(), timeout(5000)])
 
 #### `Thunk.run`
 
-Executes `Thunk<T, E, R>` and returns `Promise<Result<T, E>>`. Requires `R = never`.
+Executes `Thunk<T, E, D>` and returns `Promise<Result<T, E>>`. Requires `D = never`.
 
 ```typescript
 const result = await Thunk.run(thunk) // Result<T, E>
@@ -148,17 +148,17 @@ await Thunk.run(thunk, { unwrap: true }) // throws on error, returns T
 
 ### 1.2 Instance Methods
 
-| Method                           | Description                   |
-| -------------------------------- | ----------------------------- |
-| [`thunk.then`](#thunkthen)       | Transform success value       |
-| [`thunk.catch`](#thunkcatch)     | Handle errors                 |
-| [`thunk.finally`](#thunkfinally) | Cleanup regardless of outcome |
-| [`thunk.pipe`](#thunkpipe)       | Apply transformation          |
-| [`thunk.tap`](#thunktap)         | Side effects                  |
-| [`thunk.span`](#thunkspan)       | Add tracing span              |
-| [`thunk.retry`](#thunkretry)     | Retry on failure              |
-| [`thunk.timeout`](#thunktimeout) | Add timeout                   |
-| [`thunk.provide`](#thunkprovide) | Satisfy requirements          |
+| Method                           | Description               |
+| -------------------------------- | ------------------------- |
+| [`thunk.then`](#thunkthen)       | Transform success value   |
+| [`thunk.catch`](#thunkcatch)     | Handle errors             |
+| [`thunk.finally`](#thunkfinally) | Run regardless of outcome |
+| [`thunk.pipe`](#thunkpipe)       | Apply transformation      |
+| [`thunk.tap`](#thunktap)         | Side effects              |
+| [`thunk.span`](#thunkspan)       | Add tracing span          |
+| [`thunk.retry`](#thunkretry)     | Retry on failure          |
+| [`thunk.timeout`](#thunktimeout) | Add timeout               |
+| [`thunk.provide`](#thunkprovide) | Satisfy requirements      |
 
 #### `thunk.then`
 
@@ -166,13 +166,13 @@ Transforms the success value. Return a `TypedError` to fail.
 
 ```typescript
 thunk.then((value) => value.name)
-// Thunk<string, E, R>
+// Thunk<string, E, D>
 
 thunk.then((value) => {
   if (!value) return new NotFoundError()
   return value.name
 })
-// Thunk<string, E | NotFoundError, R>
+// Thunk<string, E | NotFoundError, D>
 ```
 
 #### `thunk.catch`
@@ -181,24 +181,24 @@ Handles errors. Return a `TypedError` to re-throw.
 
 ```typescript
 thunk.catch((error) => fallback)
-// Thunk<T | Fallback, never, R>
+// Thunk<T | Fallback, never, D>
 
 thunk.catch("NotFoundError", (error) => null)
-// Thunk<T | null, Exclude<E, NotFoundError>, R>
+// Thunk<T | null, Exclude<E, NotFoundError>, D>
 
 thunk.catch({
   NotFoundError: (error) => null,
   TimeoutError: (error) => new RetryError(),
 })
-// Thunk<T | null, Exclude<E, NotFoundError | TimeoutError> | RetryError, R>
+// Thunk<T | null, Exclude<E, NotFoundError | TimeoutError> | RetryError, D>
 ```
 
 #### `thunk.finally`
 
-Runs cleanup regardless of outcome.
+Runs regardless of outcome.
 
 ```typescript
-thunk.finally(() => cleanup())
+thunk.finally(() => console.log("done"))
 ```
 
 #### `thunk.pipe`
@@ -206,24 +206,24 @@ thunk.finally(() => cleanup())
 Applies a transformation function.
 
 ```typescript
-const withRetry = <T, E, R>(t: Thunk<T, E, R>) => t.retry(3)
-const orNull = <T, E, R>(t: Thunk<T, E, R>) => t.catch((error) => null)
+const withRetry = <T, E, D>(t: Thunk<T, E, D>) => t.retry(3)
+const orNull = <T, E, D>(t: Thunk<T, E, D>) => t.catch((error) => null)
 
-thunk.pipe(withRetry).pipe(orNull) // Thunk<T | null, never, R>
+thunk.pipe(withRetry).pipe(orNull) // Thunk<T | null, never, D>
 ```
 
 #### `thunk.tap`
 
-Executes side effects, passing `T` through unchanged. Callbacks may return `Thunks`, merging their `E` and `R` channels.
+Executes side effects, passing `T` through unchanged. Callbacks may return `Thunks`, merging their `E` and `D` channels.
 
 ```typescript
 thunk.tap((value) => console.log(value))
 
 thunk.tap({
   value: (value) => logToAnalytics(value), // Thunk<void, AnalyticsError, AnalyticsService>
-  error: (error) => logToSentry(error), // Thunk<string, SentryError, SentryService>
+  error: (error) => logToSentry(error), // Thunk<void, SentryError, SentryService>
 })
-// Thunk<T, E | AnalyticsError | SentryError, R | AnalyticsService | SentryService>
+// Thunk<T, E | AnalyticsError | SentryError, D | AnalyticsService | SentryService>
 ```
 
 #### `thunk.span`
@@ -232,7 +232,7 @@ Adds a tracing span. Requires a `Tracer` token to be provided before running.
 
 ```typescript
 thunk.span("fetchUser", { userId: id })
-// Thunk<T, E, R | Tracer>
+// Thunk<T, E, D | Tracer>
 ```
 
 > The `Tracer` token must be provided via a `Provider`. See [`Tracer`](#7-tracer) for implementation details.
@@ -267,16 +267,16 @@ Adds a timeout.
 
 ```typescript
 thunk.timeout(5000)
-// Thunk<T, E | TimeoutError, R>
+// Thunk<T, E | TimeoutError, D>
 ```
 
 #### `thunk.provide`
 
-Satisfies requirements with a `Provider`.
+Satisfies dependencies with a `Provider`.
 
 ```typescript
 thunk.provide(appProvider)
-// Thunk<T, E, Exclude<R, ProvidedTokens>>
+// Thunk<T, E, Exclude<D, ProvidedTokens>>
 ```
 
 ---
@@ -323,7 +323,7 @@ new NotFoundError({
 
 Tokens define injectable dependencies with type `Thunk<Shape, never, Token>`.
 
-Using a `Token` (via `.then()` or `yield*`) returns its `Shape` and adds `Token` to `R`.
+Using a `Token` (via `.then()` or `yield*`) returns its `Shape` and adds `Token` to `D`.
 
 ```typescript
 class UserService extends Token("UserService") {
@@ -337,7 +337,7 @@ UserService.then((service) => service.getUser(id))
 
 // Yield in generators
 Thunk.gen(function* () {
-  const service = yield* UserService // R += UserService
+  const service = yield* UserService // D += UserService
   const user = service.getUser(userId) // E += FetchError
   return user // T += User
 }) // Thunk<User, FetchError, UserService>
@@ -407,9 +407,9 @@ const databaseProvider = configProvider.provide(DatabaseService, (ctx) =>
 )
 // Provider<ConfigService | DatabaseService, DatabaseError>
 
-// Provide to thunk — subtracts C from R, merges E
+// Provide to thunk — subtracts C from D, merges E
 thunk.provide(databaseProvider)
-// Thunk<T, E | ConnectionError, Exclude<R, ConfigService | DatabaseService>>
+// Thunk<T, E | ConnectionError, Exclude<D, ConfigService | DatabaseService>>
 
 // Combine providers
 const combined = Provider.merge(authProvider, userProvider)
@@ -471,7 +471,7 @@ const tracerProvider = Provider.provide(Tracer, () => ({
   },
 }))
 
-// Provide Tracer — subtracts from R
+// Provide Tracer — subtracts from D
 thunk.provide(tracerProvider)
 // Thunk<User, FetchError, never>
 ```
@@ -482,21 +482,27 @@ thunk.provide(tracerProvider)
 
 ### Yieldables
 
-| Type         | Returns         | Adds to E | Adds to R |
-| ------------ | --------------- | --------- | --------- |
-| `Thunk`      | `T`             | `E`       | `R`       |
-| `Token`      | `TokenInstance` | `never`   | `Token`   |
-| `TypedError` | (fails)         | `Error`   | `never`   |
+| Type    | Returns         | Adds to E | Adds to D |
+| ------- | --------------- | --------- | --------- |
+| `Thunk` | `T`             | `E`       | `D`       |
+| `Token` | `TokenInstance` | `never`   | `Token`   |
+
+### Returnables
+
+| Type         | Adds to T | Adds to E |
+| ------------ | --------- | --------- |
+| `T`          | `T`       | `never`   |
+| `TypedError` | `never`   | `Error`   |
 
 ### Unwrapping
 
-Values returned from `then`, `catch`, or yielded in `gen`:
+Values returned from `then` or `catch`:
 
-| Input        | Value (`T`)     | Error (`E`) | Requirements (`R`) |
+| Input        | Value (`T`)     | Error (`E`) | Dependencies (`D`) |
 | ------------ | --------------- | ----------- | ------------------ |
 | `T`          | `T`             | `never`     | `never`            |
 | `Promise<T>` | `T`             | `never`     | `never`            |
-| `Thunk`      | `T`             | `E`         | `R`                |
+| `Thunk`      | `T`             | `E`         | `D`                |
 | `Token`      | `TokenInstance` | `never`     | `Token`            |
 | `TypedError` | `never`         | `Error`     | `never`            |
 
@@ -504,14 +510,14 @@ Values returned from `then`, `catch`, or yielded in `gen`:
 
 ```typescript
 a.then(() => b)
-// Thunk<Tb, Ea | Eb, Ra | Rb>
+// Thunk<Tb, Ea | Eb, Da | Db>
 ```
 
-### Providing Removes from R
+### Providing Removes from D
 
 ```typescript
-thunk.provide(partialProvider) // R -= provided tokens
-thunk.provide(fullProvider) // R = never → runnable
+thunk.provide(partialProvider) // D -= provided tokens
+thunk.provide(fullProvider) // D = never → runnable
 ```
 
 ---
@@ -560,7 +566,7 @@ if (result.ok) {
 
 | Concept           | Effect              | Thunx                     |
 | ----------------- | ------------------- | ------------------------- |
-| Core type         | `Effect<A, E, R>`   | `Thunk<T, E, R>`          |
+| Core type         | `Effect<A, E, R>`   | `Thunk<T, E, D>`          |
 | Lift value        | `Effect.succeed`    | `Thunk.from`              |
 | Create from thunk | `Effect.try`        | `Thunk.try`               |
 | Fail              | `Effect.fail`       | `return new TypedError()` |
