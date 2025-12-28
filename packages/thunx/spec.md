@@ -265,7 +265,7 @@ thunk.retry({
 
 #### `thunk.timeout`
 
-Adds a timeout.
+Fails with `TimeoutError` if duration exceeded.
 
 ```typescript
 thunk.timeout(5000)
@@ -274,7 +274,7 @@ thunk.timeout(5000)
 
 #### `thunk.provide`
 
-Satisfy requirements with a [`Provider`](#4-provider), merge `E` and `R` channels.
+Satisfies requirements with a [`Provider`](#4-provider), merging `E` and `R` channels.
 
 ```typescript
 // thunk: Thunk<T, Et, Rt>
@@ -290,10 +290,10 @@ thunk.provide(provider)
 All errors in channel `E` are `TypedError` instances with a typed `name` for discrimination.
 
 ```typescript
-// Simple error (no payload)
+// Error without custom properties
 class UnauthorizedError extends TypedError("UnauthorizedError") {}
 
-// Error with payload
+// Error with custom properties
 class NotFoundError extends TypedError("NotFoundError")<{
   readonly resource: string
 }> {}
