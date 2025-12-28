@@ -1,6 +1,6 @@
 # Thunx Specification
 
-Thunx provides type-safe error handling and dependency injection through a familiar `Promise`-like interface called a `Thunk`.
+Thunx provides type-safe error handling and dependency injection through a familiar Promise-like interface called a Thunk.
 
 Thunks differ from Promises in two key ways:
 
@@ -94,8 +94,8 @@ Runs `Thunks` concurrently and collects all results.
 Thunk.all([fetchUser(id), fetchPosts(id)]) // array
 // Thunk<[User, Post[]], UserError | PostError, never>
 
-Thunk.all({ user: UserService, auth: ConfigService }) // object
-// Thunk<{ user: ..., config: ... }, never, UserService | ConfigService>
+Thunk.all({ auth: AuthService, user: UserService }) // object
+// Thunk<{ auth: ..., user: ... }, never, AuthService | UserService>
 
 Thunk.all(thunks, { concurrency: 5 })
 ```
@@ -379,7 +379,6 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 | Method     | Description                         |
 | ---------- | ----------------------------------- |
 | `.provide` | Add token (can access prior tokens) |
-| `.merge`   | Combine with another provider       |
 | `.pick`    | Select specified tokens             |
 | `.omit`    | Exclude specified tokens            |
 
