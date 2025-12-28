@@ -6,8 +6,8 @@ Thunks differ from Promises in two key ways:
 
 **1. Richer types** — `Promise<T>` only tracks the success type. `Thunk<T, E, R>` tracks three channels:
 
-- `T` — success value types
-- `E` — failure error types
+- `T` — success types
+- `E` — error types
 - `R` — required dependency types (must be `never` to run)
 
 ```typescript
@@ -55,9 +55,7 @@ Lazy execution enables composition, observation, and resilience through retryabi
 
 #### `Thunk.try`
 
-Creates a `Thunk` from a factory with optional error handling.
-
-The factory receives an `AbortSignal` for cancellation.
+Creates a `Thunk` from a factory with optional error handling. The factory receives an `AbortSignal` for cancellation.
 
 ```typescript
 Thunk.try(() => 42)
@@ -280,9 +278,9 @@ Satisfy requirements with a [`Provider`](#4-provider), merge `E` and `R` channel
 
 ```typescript
 // thunk: Thunk<T, Et, Rt>
-// provider: Provider<S, Ep, Rp>
+// provider: Provider<P, Ep, Rp>
 thunk.provide(provider)
-// Thunk<T, Et | Ep, Exclude<Rt, S> | Rp>
+// Thunk<T, Et | Ep, Exclude<Rt, P> | Rp>
 ```
 
 ---
@@ -355,9 +353,9 @@ Tokens are provided via a [`Provider`](#4-provider).
 
 ## 4. `Provider`
 
-Providers supply `Token` implementations with type `Provider<S, E, R>` where:
+Providers supply `Token` implementations with type `Provider<P, E, R>` where:
 
-- `S` — supplied dependency types
+- `P` — provided dependency types
 - `E` — error types
 - `R` — required dependency types
 
@@ -403,12 +401,12 @@ Provider.merge(configProvider, databaseProvider)
 
 ### `Provider.compose`
 
-Wires providers so that one satisfies another's requirements (sequential combination). The first provider's `S` satisfies the second provider's `R`.
+Wires providers so that one satisfies another's requirements (sequential combination). The first provider's `P` satisfies the second provider's `R`.
 
 ```typescript
 Provider.compose(configProvider, dbProvider)
 // Provider<ConfigService | DatabaseService, DbError, never>
-// configProvider.S satisfies dbProvider.R → R = never
+// configProvider.P satisfies dbProvider.R → R = never
 ```
 
 ### Usage
@@ -537,10 +535,10 @@ a.then(() => b)
 
 ```typescript
 thunk.provide(provider)
-// Thunk<T, E | Ep, Exclude<R, S> | Rp>
-// where Provider<S, Ep, Rp>
+// Thunk<T, E | Ep, Exclude<R, P> | Rp>
+// where Provider<P, Ep, Rp>
 
-thunk.provide(partialProvider) // R -= S, R += Rp
+thunk.provide(partialProvider) // R -= P, R += Rp
 thunk.provide(fullProvider) // R = never → runnable
 ```
 
@@ -591,7 +589,7 @@ if (result.ok) {
 | Concept           | Effect              | Thunx                     |
 | ----------------- | ------------------- | ------------------------- |
 | Core type         | `Effect<A, E, R>`   | `Thunk<T, E, R>`          |
-| Dependency type   | `Layer<Out, E, In>` | `Provider<S, E, R>`       |
+| Dependency type   | `Layer<Out, E, In>` | `Provider<P, E, R>`       |
 | Create from thunk | `Effect.try`        | `Thunk.try`               |
 | Delay             | `Effect.sleep`      | `Thunk.delay`             |
 | Fail              | `Effect.fail`       | `return new TypedError()` |
