@@ -57,6 +57,8 @@ Lazy execution enables composition, observation, and resilience through retryabi
 
 Creates a `Thunk` from a factory with optional error handling.
 
+The factory receives an `AbortSignal` for cancellation.
+
 ```typescript
 Thunk.try(() => 42)
 // Thunk<number, never, never>
@@ -67,11 +69,11 @@ Thunk.try({
 })
 // Thunk<Response, FetchError, never>
 
-Thunk.try((ctx) => fetch(url, { signal: ctx.signal }))
+Thunk.try((signal) => fetch(url, { signal }))
 // Thunk<Response, never, never>
 ```
 
-> Without `catch`, thrown errors are wrapped in an `UnexpectedError`.
+Without `catch`, thrown errors are wrapped in an `UnexpectedError`.
 
 #### `Thunk.gen`
 
@@ -237,7 +239,7 @@ thunk.span("fetchUser", { userId: id })
 // Thunk<T, E, R | Tracer>
 ```
 
-> The `Tracer` token must be provided via a `Provider`. See [`Tracer`](#7-tracer) for implementation details.
+> The `Tracer` token must be provided via a `Provider`. See [`Tracer`](#6-tracer) for implementation details.
 
 #### `thunk.retry`
 
@@ -274,7 +276,7 @@ thunk.timeout(5000)
 
 #### `thunk.provide`
 
-Satisfy requirements with a [`Provider`](#5-provider), merge `E` and `R` channels.
+Satisfy requirements with a [`Provider`](#4-provider), merge `E` and `R` channels.
 
 ```typescript
 // thunk: Thunk<T, Et, Rt>
@@ -347,25 +349,11 @@ Thunk.gen(function* () {
 }) // Thunk<User, FetchError, UserService>
 ```
 
-Tokens are provided via a [`Provider`](#5-provider).
+Tokens are provided via a [`Provider`](#4-provider).
 
 ---
 
-## 4. `Context`
-
-Context is passed to `Thunk.try` and `Provider.create` factories:
-
-```typescript
-interface Context {
-  readonly signal: AbortSignal
-}
-```
-
-The `signal` originates from `Thunk.run` options.
-
----
-
-## 5. `Provider`
+## 4. `Provider`
 
 Providers supply `Token` implementations with type `Provider<S, E, R>` where:
 
@@ -452,7 +440,7 @@ thunk.provide(appProvider)
 
 ---
 
-## 6. `Result`
+## 5. `Result`
 
 `Thunk.run` returns `Promise<Result<T, E>>`:
 
@@ -474,7 +462,7 @@ if (result.ok) {
 
 ---
 
-## 7. `Tracer`
+## 6. `Tracer`
 
 `Tracer` is a built-in `Token` that enables observability via `thunk.span()`:
 
