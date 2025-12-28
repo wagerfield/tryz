@@ -71,7 +71,7 @@ Thunk.try((signal) => fetch(url, { signal }))
 // Thunk<Response, never, never>
 ```
 
-Without `catch`, thrown errors are wrapped in an `UnexpectedError`.
+Without `catch`, thrown errors are wrapped in an `UnexpectedError` (not added to `E`).
 
 #### `Thunk.gen`
 
@@ -89,7 +89,7 @@ Thunk.gen(function* () {
 
 #### `Thunk.delay`
 
-Creates a `Thunk` that resolves after a delay. Respects the abort signal.
+Creates a `Thunk` that resolves after a delay.
 
 ```typescript
 Thunk.delay(1000)
