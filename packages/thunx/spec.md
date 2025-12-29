@@ -147,7 +147,7 @@ Returns first to settle (success or failure).
 
 ```typescript
 Thunk.race([fetchFromPrimary(id), fetchFromReplica(id)])
-// Thunk<User, PrimaryError | ReplicaError, never>
+// Thunk<User, DatabaseError, DatabaseService>
 ```
 
 #### `Thunk.run`
@@ -257,14 +257,12 @@ thunk.tap({
 
 #### `thunk.span`
 
-Adds a tracing span. Requires a `Tracer` token to be provided before running.
+Adds a tracing span. Requires a [`Tracer`](#6-tracer) token to be provided before running.
 
 ```typescript
 thunk.span("fetchUser", { userId: id })
 // Thunk<T, E, R | Tracer>
 ```
-
-> The `Tracer` token must be provided via a `Provider`. See [`Tracer`](#6-tracer) for implementation details.
 
 #### `thunk.retry`
 
@@ -374,13 +372,13 @@ Thunk.gen(function* () {
 }) // Thunk<User, FetchError, UserService>
 ```
 
-The `declare` keyword defines the `Shape` without generating runtime code.
+The `declare` keyword defines the token `Shape` without generating runtime code.
 
 Implementations are supplied via a [`Provider`](#4-provider).
 
 ### `Token.of`
 
-Creates a type-safe instance of a `Token`'s shape. Validates the object conforms to the declared shape at compile time.
+Creates a type-safe instance of a `Token`. Validates the object conforms to the declared `Shape` at compile time.
 
 ```typescript
 class ConfigService extends Token("ConfigService") {
@@ -388,14 +386,9 @@ class ConfigService extends Token("ConfigService") {
   declare readonly timeout: number
 }
 
-ConfigService.of({ baseUrl: "http://api.example.com", timeout: 5000 })
-// { baseUrl: string, timeout: number }
-
-// Type error — missing 'timeout'
+// Property 'timeout' is missing...
 ConfigService.of({ baseUrl: "http://api.example.com" })
 ```
-
-Useful for creating implementations in `Provider.create` or test mocks with compile-time validation.
 
 ---
 
