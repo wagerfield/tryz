@@ -35,7 +35,7 @@ Lazy execution enables composition, observation, and resilience through retryabi
 | ----------------------- | ----------------------------------------------------------------------- |
 | **Errors as values**    | Return `TypedError` instances to fail — no `throw` statements           |
 | **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, R>` uniformly |
-| **Minimal API surface** | 7 static methods, 9 chainable instance methods                          |
+| **Minimal API surface** | 8 static methods, 9 chainable instance methods                          |
 
 ---
 
@@ -45,6 +45,7 @@ Lazy execution enables composition, observation, and resilience through retryabi
 
 | Method                       | Description                  |
 | ---------------------------- | ---------------------------- |
+| [`Thunk.of`](#thunkof)       | Create from value            |
 | [`Thunk.try`](#thunktry)     | Create from factory          |
 | [`Thunk.gen`](#thunkgen)     | Compose via generators       |
 | [`Thunk.delay`](#thunkdelay) | Delay execution              |
@@ -52,6 +53,18 @@ Lazy execution enables composition, observation, and resilience through retryabi
 | [`Thunk.any`](#thunkany)     | Concurrent — first success   |
 | [`Thunk.race`](#thunkrace)   | Concurrent — first to settle |
 | [`Thunk.run`](#thunkrun)     | Execute thunk                |
+
+#### `Thunk.of`
+
+Creates a `Thunk` from a synchronous value. For async or fallible operations, use [`Thunk.try`](#thunktry).
+
+```typescript
+Thunk.of(42)
+// Thunk<number, never, never>
+
+Thunk.of(user)
+// Thunk<User, never, never>
+```
 
 #### `Thunk.try`
 
@@ -362,6 +375,25 @@ The `declare` keyword defines the `Shape` without generating runtime code.
 
 Implementations are supplied via a [`Provider`](#4-provider).
 
+### `Token.of`
+
+Creates a type-safe instance of a `Token`'s shape. Validates the object conforms to the declared shape at compile time.
+
+```typescript
+class ConfigService extends Token("ConfigService") {
+  declare readonly baseUrl: string
+  declare readonly timeout: number
+}
+
+ConfigService.of({ baseUrl: "http://api.example.com", timeout: 5000 })
+// { baseUrl: string, timeout: number }
+
+// Type error — missing 'timeout'
+ConfigService.of({ baseUrl: "http://api.example.com" })
+```
+
+Useful for creating implementations in `Provider.create` or test mocks with compile-time validation.
+
 ---
 
 ## 4. `Provider`
@@ -376,11 +408,18 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 
 ### Static Methods
 
-| Method                               | Description                   |
-| ------------------------------------ | ----------------------------- |
-| [`Provider.create`](#providercreate) | Create provider for a `Token` |
-| [`Provider.inject`](#providerinject) | Chain providers (sequential)  |
-| [`Provider.merge`](#providermerge)   | Combine providers (parallel)  |
+| Method                                 | Description                                |
+| -------------------------------------- | ------------------------------------------ |
+| [`Provider.create`](#providercreate)   | Create provider for a `Token`              |
+| [`Provider.provide`](#providerprovide) | Compose providers — encapsulated (P = Pb)  |
+| [`Provider.merge`](#providermerge)     | Compose providers — exposed (P = Pa \| Pb) |
+
+Both `provide` and `merge` wire dependencies (`Pa` → `Rb`). The difference is whether `Pa` appears in the output `P` channel:
+
+| Method    | Wires? | Output P   | Use Case                        |
+| --------- | ------ | ---------- | ------------------------------- |
+| `provide` | ✅     | `Pb`       | Encapsulation — hide internals  |
+| `merge`   | ✅     | `Pa \| Pb` | Composition — expose everything |
 
 ### `Provider.create`
 
@@ -402,27 +441,35 @@ Provider.create(
 // Provider<DatabaseService, DatabaseError, ConfigService>
 ```
 
-### `Provider.inject`
+### `Provider.provide`
 
-Injects the first provider's dependencies into the second. The first provider's `P` is subtracted from the second provider's `R`.
+Composes providers with encapsulation. Wires `Pa` into `Rb`, but only `Pb` appears in output `P`.
 
 ```typescript
-Provider.inject(
+Provider.provide(
+  configProvider, // Provider<ConfigService, never, never>
+  databaseProvider, // Provider<DatabaseService, DatabaseError, ConfigService>
+)
+// Provider<DatabaseService, DatabaseError, never>
+//          ↑ only DatabaseService exposed — ConfigService is internal
+```
+
+Use `provide` when building layers where internal dependencies should be hidden from consumers.
+
+### `Provider.merge`
+
+Composes providers with full exposure. Wires `Pa` into `Rb`, and both `Pa` and `Pb` appear in output `P`.
+
+```typescript
+Provider.merge(
   configProvider, // Provider<ConfigService, never, never>
   databaseProvider, // Provider<DatabaseService, DatabaseError, ConfigService>
 )
 // Provider<ConfigService | DatabaseService, DatabaseError, never>
+//          ↑ both exposed
 ```
 
-### `Provider.merge`
-
-Combines providers without wiring. Accumulates all channels (parallel combination).
-
-```typescript
-Provider.merge(configProvider, databaseProvider)
-// Provider<ConfigService | DatabaseService, DatabaseError, ConfigService>
-// S combined, E combined, R combined
-```
+Use `merge` when building application-level providers where all dependencies should be accessible.
 
 ### Usage
 
@@ -442,13 +489,17 @@ const databaseProvider = Provider.create(
 )
 // Provider<DatabaseService, DatabaseError, ConfigService>
 
-// Inject ConfigService into DatabaseService
-const appProvider = Provider.inject(configProvider, databaseProvider)
+// Encapsulated — only DatabaseService exposed
+const dbLayer = Provider.provide(configProvider, databaseProvider)
+// Provider<DatabaseService, DatabaseError, never>
+
+// Exposed — both ConfigService and DatabaseService accessible
+const appProvider = Provider.merge(configProvider, databaseProvider)
 // Provider<ConfigService | DatabaseService, DatabaseError, never>
 
 // Provide to thunk
-thunk.provide(appProvider)
-// Thunk<T, E | DatabaseError, Exclude<R, ConfigService | DatabaseService>>
+thunk.provide(dbLayer)
+// Thunk<T, E | DatabaseError, Exclude<R, DatabaseService>>
 ```
 
 ---
@@ -522,10 +573,13 @@ thunk.provide(tracerProvider)
 
 ### Returnables
 
-| Type         | Adds to T | Adds to E |
-| ------------ | --------- | --------- |
-| `T`          | `T`       | `never`   |
-| `TypedError` | `never`   | `Error`   |
+Values returned from `Thunk.try`, `Thunk.gen`, `thunk.then`, `thunk.catch`, or `thunk.tap`:
+
+| Type         | Adds to T | Adds to E | Adds to R |
+| ------------ | --------- | --------- | --------- |
+| `T`          | `T`       | `never`   | `never`   |
+| `Thunk`      | `T`       | `E`       | `R`       |
+| `TypedError` | `never`   | `Error`   | `never`   |
 
 ### Unwrapping
 
@@ -601,19 +655,20 @@ if (result.ok) {
 
 ## Appendix: Comparison with Effect
 
-| Concept           | Effect               | Thunx                     |
-| ----------------- | -------------------- | ------------------------- |
-| Core type         | `Effect<A, E, R>`    | `Thunk<T, E, R>`          |
-| Dependency type   | `Layer<Out, E, In>`  | `Provider<P, E, R>`       |
-| Create from thunk | `Effect.try`         | `Thunk.try`               |
-| Delay             | `Effect.sleep`       | `Thunk.delay`             |
-| Fail              | `Effect.fail`        | `return new TypedError()` |
-| Transform         | `Effect.andThen`     | `thunk.then`              |
-| Handle errors     | `Effect.catchTag`    | `thunk.catch`             |
-| Side effects      | `Effect.tap`         | `thunk.tap`               |
-| Run               | `Effect.runPromise`  | `Thunk.run`               |
-| Generator syntax  | `Effect.gen`         | `Thunk.gen`               |
-| Service access    | `yield* Tag`         | `yield* Token`            |
-| Create layer      | `Layer.succeed`      | `Provider.create`         |
-| Merge layers      | `Layer.merge`        | `Provider.merge`          |
-| Compose layers    | `Layer.provideMerge` | `Provider.inject`         |
+| Concept               | Effect               | Thunx                     |
+| --------------------- | -------------------- | ------------------------- |
+| Core type             | `Effect<A, E, R>`    | `Thunk<T, E, R>`          |
+| Dependency type       | `Layer<Out, E, In>`  | `Provider<P, E, R>`       |
+| Lift value            | `Effect.succeed`     | `Thunk.of`                |
+| Create from thunk     | `Effect.try`         | `Thunk.try`               |
+| Delay                 | `Effect.sleep`       | `Thunk.delay`             |
+| Fail                  | `Effect.fail`        | `return new TypedError()` |
+| Transform             | `Effect.andThen`     | `thunk.then`              |
+| Handle errors         | `Effect.catchTag`    | `thunk.catch`             |
+| Side effects          | `Effect.tap`         | `thunk.tap`               |
+| Run                   | `Effect.runPromise`  | `Thunk.run`               |
+| Generator syntax      | `Effect.gen`         | `Thunk.gen`               |
+| Service access        | `yield* Tag`         | `yield* Token`            |
+| Create layer          | `Layer.succeed`      | `Provider.create`         |
+| Compose (expose)      | `Layer.provideMerge` | `Provider.merge`          |
+| Compose (encapsulate) | `Layer.provide`      | `Provider.provide`        |
