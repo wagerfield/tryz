@@ -373,22 +373,22 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 
 ### Static Methods
 
-| Method                                 | Description                  |
-| -------------------------------------- | ---------------------------- |
-| [`Provider.create`](#providercreate)   | Create provider for a token  |
-| [`Provider.merge`](#providermerge)     | Combine providers (parallel) |
-| [`Provider.compose`](#providercompose) | Wire providers (sequential)  |
+| Method                                 | Description                   |
+| -------------------------------------- | ----------------------------- |
+| [`Provider.create`](#providercreate)   | Create provider for a `Token` |
+| [`Provider.merge`](#providermerge)     | Combine providers (parallel)  |
+| [`Provider.compose`](#providercompose) | Wire providers (sequential)   |
 
 ### `Provider.create`
 
-Creates a `Provider` for a single `Token`. Accepts an object or a `Thunk`. If a `Thunk` is provided, its `E` and `R` channels flow to the `Provider`.
+Creates a `Provider` for a `Token`. Accepts an object or `Thunk` supplying the implementation. If a `Thunk` is provided, its `E` and `R` channels flow to the `Provider`.
 
 ```typescript
 // Static object — no requirements
 Provider.create(ConfigService, { databaseUrl: "postgres://..." })
 // Provider<ConfigService, never, never>
 
-// Thunk with dependencies — R flows from Thunk's R
+// Thunk with dependencies — E and R flow from Thunk
 Provider.create(
   DatabaseService,
   Thunk.gen(function* () {
