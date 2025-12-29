@@ -59,7 +59,7 @@ Lazy execution enables composition, observation, and resilience through retryabi
 Creates a `Thunk` from a synchronous value. For async or fallible operations, use [`Thunk.try`](#thunktry).
 
 ```typescript
-Thunk.of(42)
+Thunk.of(123)
 // Thunk<number, never, never>
 
 Thunk.of(user)
@@ -68,10 +68,10 @@ Thunk.of(user)
 
 #### `Thunk.try`
 
-Creates a `Thunk` from a factory with optional error handling. The factory receives an `AbortSignal` for cancellation.
+Creates a `Thunk` from a factory with optional error handling. The factory receives an `AbortSignal` for cancellation and can return `T`, `Promise<T>`, or `Thunk<T, E, R>` — all unwrapped.
 
 ```typescript
-Thunk.try(() => 42)
+Thunk.try(() => 123)
 // Thunk<number, never, never>
 
 Thunk.try({
