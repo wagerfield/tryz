@@ -404,29 +404,22 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 
 ### Static Methods
 
-| Method                                 | Description                                |
-| -------------------------------------- | ------------------------------------------ |
-| [`Provider.create`](#providercreate)   | Create provider for a `Token`              |
-| [`Provider.provide`](#providerprovide) | Compose providers — encapsulated (P = Pb)  |
-| [`Provider.merge`](#providermerge)     | Compose providers — exposed (P = Pa \| Pb) |
+| Method                                 | Description                   |
+| -------------------------------------- | ----------------------------- |
+| [`Provider.create`](#providercreate)   | Create provider for a `Token` |
+| [`Provider.merge`](#providermerge)     | Combine providers             |
+| [`Provider.provide`](#providerprovide) | Wire providers                |
 
-Both `provide` and `merge` wire dependencies (`Pa` → `Rb`). The difference is whether `Pa` appears in the output `P` channel:
+#### `Provider.create`
 
-| Method    | Wires? | Output P   | Use Case                        |
-| --------- | ------ | ---------- | ------------------------------- |
-| `provide` | ✅     | `Pb`       | Encapsulation — hide internals  |
-| `merge`   | ✅     | `Pa \| Pb` | Composition — expose everything |
-
-### `Provider.create`
-
-Creates a `Provider` for a `Token`. Accepts an object or `Thunk` providing the implementation. If a `Thunk` is passed, its `E` and `R` channels flow to the `Provider`.
+Creates a `Provider` for a `Token`. Accepts an object or `Thunk`
 
 ```typescript
-// Static object — no requirements
+// Static object
 Provider.create(ConfigService, { databaseUrl: "postgres://..." })
 // Provider<ConfigService, never, never>
 
-// Thunk with dependencies — E and R flow from Thunk
+// Thunk — E and R flow to Provider
 Provider.create(
   DatabaseService,
   Thunk.gen(function* () {
@@ -437,40 +430,43 @@ Provider.create(
 // Provider<DatabaseService, DatabaseError, ConfigService>
 ```
 
-### `Provider.provide`
+#### `Provider.merge`
 
-Composes providers with encapsulation. Wires `Pa` into `Rb`, but only `Pb` appears in output `P`.
-
-```typescript
-Provider.provide(
-  configProvider, // Provider<ConfigService, never, never>
-  databaseProvider, // Provider<DatabaseService, DatabaseError, ConfigService>
-)
-// Provider<DatabaseService, DatabaseError, never>
-//          ↑ only DatabaseService exposed — ConfigService is internal
-```
-
-Use `provide` when building layers where internal dependencies should be hidden from consumers.
-
-### `Provider.merge`
-
-Composes providers with full exposure. Wires `Pa` into `Rb`, and both `Pa` and `Pb` appear in output `P`.
+Combines providers by unioning all channels. No wiring — requirements remain unsatisfied.
 
 ```typescript
-Provider.merge(
-  configProvider, // Provider<ConfigService, never, never>
-  databaseProvider, // Provider<DatabaseService, DatabaseError, ConfigService>
-)
-// Provider<ConfigService | DatabaseService, DatabaseError, never>
-//          ↑ both exposed
+// p1: Provider<P1, E1, R1>
+// p2: Provider<P2, E2, R2>
+Provider.merge(p1, p2)
+// Provider<P1 | P2, E1 | E2, R1 | R2>
 ```
 
-Use `merge` when building application-level providers where all dependencies should be accessible.
+Variadic — accepts multiple providers:
+
+```typescript
+Provider.merge(p1, p2, p3)
+// Provider<P1 | P2 | P3, E1 | E2 | E3, R1 | R2 | R3>
+```
+
+#### `Provider.provide`
+
+Wires one provider into another, satisfying dependencies. `P1` is subtracted from `R2`.
+
+```typescript
+// p1: Provider<P1, E1, R1>
+// p2: Provider<P2, E2, R2>
+Provider.provide(p1, p2)
+// Provider<P2, E1 | E2, R1 | Exclude<R2, P1>>
+```
+
+- Only `P2` appears in output — `P1` is encapsulated
+- `P1` satisfies matching requirements in `R2`
+- `R1` merges with remaining requirements
 
 ### Usage
 
 ```typescript
-// Create discrete providers
+// Create providers
 const configProvider = Provider.create(ConfigService, {
   databaseUrl: "postgres://user:password@host:5432/database",
 })
@@ -485,17 +481,19 @@ const databaseProvider = Provider.create(
 )
 // Provider<DatabaseService, DatabaseError, ConfigService>
 
-// Encapsulated — only DatabaseService exposed
-const dbLayer = Provider.provide(configProvider, databaseProvider)
-// Provider<DatabaseService, DatabaseError, never>
+// Merge — union all channels
+Provider.merge(configProvider, databaseProvider)
+// Provider<ConfigService | DatabaseService, DatabaseError, ConfigService>
+// R = never | ConfigService = ConfigService (unsatisfied)
 
-// Exposed — both ConfigService and DatabaseService accessible
-const appProvider = Provider.merge(configProvider, databaseProvider)
-// Provider<ConfigService | DatabaseService, DatabaseError, never>
+// Provide — wire configProvider into databaseProvider
+Provider.provide(configProvider, databaseProvider)
+// Provider<DatabaseService, DatabaseError, never>
+// R = never | Exclude<ConfigService, ConfigService> = never (satisfied)
 
 // Provide to thunk
-thunk.provide(dbLayer)
-// Thunk<T, E | DatabaseError, Exclude<R, DatabaseService>>
+thunk.provide(provider)
+// Thunk<T, E | Ep, Exclude<R, P> | Rp>
 ```
 
 ---
@@ -651,20 +649,20 @@ if (result.ok) {
 
 ## Appendix: Comparison with Effect
 
-| Concept               | Effect               | Thunx                     |
-| --------------------- | -------------------- | ------------------------- |
-| Core type             | `Effect<A, E, R>`    | `Thunk<T, E, R>`          |
-| Dependency type       | `Layer<Out, E, In>`  | `Provider<P, E, R>`       |
-| Lift value            | `Effect.succeed`     | `Thunk.of`                |
-| Create from thunk     | `Effect.try`         | `Thunk.try`               |
-| Delay                 | `Effect.sleep`       | `Thunk.delay`             |
-| Fail                  | `Effect.fail`        | `return new TypedError()` |
-| Transform             | `Effect.andThen`     | `thunk.then`              |
-| Handle errors         | `Effect.catchTag`    | `thunk.catch`             |
-| Side effects          | `Effect.tap`         | `thunk.tap`               |
-| Run                   | `Effect.runPromise`  | `Thunk.run`               |
-| Generator syntax      | `Effect.gen`         | `Thunk.gen`               |
-| Service access        | `yield* Tag`         | `yield* Token`            |
-| Create layer          | `Layer.succeed`      | `Provider.create`         |
-| Compose (expose)      | `Layer.provideMerge` | `Provider.merge`          |
-| Compose (encapsulate) | `Layer.provide`      | `Provider.provide`        |
+| Concept           | Effect              | Thunx                     |
+| ----------------- | ------------------- | ------------------------- |
+| Core type         | `Effect<A, E, R>`   | `Thunk<T, E, R>`          |
+| Dependency type   | `Layer<Out, E, In>` | `Provider<P, E, R>`       |
+| Lift value        | `Effect.succeed`    | `Thunk.of`                |
+| Create from thunk | `Effect.try`        | `Thunk.try`               |
+| Delay             | `Effect.sleep`      | `Thunk.delay`             |
+| Fail              | `Effect.fail`       | `return new TypedError()` |
+| Transform         | `Effect.andThen`    | `thunk.then`              |
+| Handle errors     | `Effect.catchTag`   | `thunk.catch`             |
+| Side effects      | `Effect.tap`        | `thunk.tap`               |
+| Run               | `Effect.runPromise` | `Thunk.run`               |
+| Generator syntax  | `Effect.gen`        | `Thunk.gen`               |
+| Service access    | `yield* Tag`        | `yield* Token`            |
+| Create layer      | `Layer.succeed`     | `Provider.create`         |
+| Combine layers    | `Layer.merge`       | `Provider.merge`          |
+| Wire layers       | `Layer.provide`     | `Provider.provide`        |
