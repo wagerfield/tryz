@@ -373,11 +373,11 @@ Like Thunks, Providers are immutable: each method returns a new `Provider` insta
 
 ### Static Methods
 
-| Method                                 | Description                   |
-| -------------------------------------- | ----------------------------- |
-| [`Provider.create`](#providercreate)   | Create provider for a `Token` |
-| [`Provider.merge`](#providermerge)     | Combine providers (parallel)  |
-| [`Provider.compose`](#providercompose) | Wire providers (sequential)   |
+| Method                               | Description                   |
+| ------------------------------------ | ----------------------------- |
+| [`Provider.create`](#providercreate) | Create provider for a `Token` |
+| [`Provider.inject`](#providerinject) | Chain providers (sequential)  |
+| [`Provider.merge`](#providermerge)   | Combine providers (parallel)  |
 
 ### `Provider.create`
 
@@ -393,10 +393,22 @@ Provider.create(
   DatabaseService,
   Thunk.gen(function* () {
     const config = yield* ConfigService // R += ConfigService
-    return createDatabase(config.databaseUrl)
+    return createDatabase(config.databaseUrl) // E += DatabaseError
   }),
 )
 // Provider<DatabaseService, DatabaseError, ConfigService>
+```
+
+### `Provider.inject`
+
+Injects the first provider's dependencies into the second. The first provider's `P` is subtracted from the second provider's `R`.
+
+```typescript
+Provider.inject(
+  configProvider, // Provider<ConfigService, never, never>
+  databaseProvider, // Provider<DatabaseService, DatabaseError, ConfigService>
+)
+// Provider<ConfigService | DatabaseService, DatabaseError, never>
 ```
 
 ### `Provider.merge`
@@ -407,16 +419,6 @@ Combines providers without wiring. Accumulates all channels (parallel combinatio
 Provider.merge(configProvider, databaseProvider)
 // Provider<ConfigService | DatabaseService, DatabaseError, ConfigService>
 // S combined, E combined, R combined
-```
-
-### `Provider.compose`
-
-Wires providers so that one satisfies another's requirements (sequential combination). The first provider's `P` satisfies the second provider's `R`.
-
-```typescript
-Provider.compose(configProvider, databaseProvider)
-// Provider<ConfigService | DatabaseService, DatabaseError, never>
-// configProvider.P satisfies databaseProvider.R → R = never
 ```
 
 ### Usage
@@ -437,8 +439,8 @@ const databaseProvider = Provider.create(
 )
 // Provider<DatabaseService, DatabaseError, ConfigService>
 
-// Compose — wire config → database
-const appProvider = Provider.compose(configProvider, databaseProvider)
+// Inject — wire config → database
+const appProvider = Provider.inject(configProvider, databaseProvider)
 // Provider<ConfigService | DatabaseService, DatabaseError, never>
 
 // Provide to thunk
@@ -611,4 +613,4 @@ if (result.ok) {
 | Service access    | `yield* Tag`        | `yield* Token`            |
 | Create layer      | `Layer.succeed`     | `Provider.create`         |
 | Merge layers      | `Layer.merge`       | `Provider.merge`          |
-| Compose layers    | `Layer.provide`     | `Provider.compose`        |
+| Compose layers    | `Layer.provide`     | `Provider.inject`         |
