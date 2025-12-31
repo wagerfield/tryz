@@ -37,7 +37,7 @@ Five principles shape the API:
 | ----------------------- | ---------------------------------------------------------------------------------------- |
 | **Errors as values**    | Type-safe error handling. Return `TypedError` instances to fail — no `throw` statements. |
 | **Lazy execution**      | Thunks defer computation until run. Enables composition, observation, and retryability.  |
-| **Minimal API surface** | Only 4 classes with ~20 methods combined. Quick to learn, easy to remember.              |
+| **Minimal API surface** | Only 4 classes with just 21 methods combined. Quick to learn, easy to remember.          |
 | **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, R>` seamlessly.                |
 | **Immutability**        | Methods return new instances. No mutation, no side effects, predictable behavior.        |
 
@@ -155,10 +155,21 @@ Thunk.race([fetchFromPrimary(id), fetchFromReplica(id)])
 Executes `Thunk<T, E, R>` and returns `Promise<Result<T, E>>`. Requires `R = never`.
 
 ```typescript
-const result = await Thunk.run(thunk) // Result<T, E>
+type Result<T, E> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: E }
+```
 
-if (result.ok) console.log(result.value)
-else console.error(result.error)
+`Result` is a discriminated union — check `ok` to access `value` or `error`:
+
+```typescript
+const result = await Thunk.run(thunk)
+
+if (result.ok) {
+  console.log(result.value) // T
+} else {
+  console.error(result.error) // E
+}
 
 // With options
 await Thunk.run(thunk, { signal }) // pass AbortSignal
@@ -247,7 +258,7 @@ thunk.tap({
 
 #### `thunk.span`
 
-Adds a tracing span. Requires a [`Tracer`](#6-tracer) token to be provided before running.
+Adds a tracing span. Requires a [`Tracer`](#5-tracer) token to be provided before running.
 
 ```typescript
 thunk.span("fetchUser", { userId: id })
@@ -450,7 +461,7 @@ configProvider.merge(loggerProvider, cacheProvider)
 
 #### `provider.span`
 
-Adds a tracing span to construction. Requires [`Tracer`](#6-tracer) to be provided.
+Adds a tracing span to construction. Requires [`Tracer`](#5-tracer) to be provided.
 
 ```typescript
 provider.span("createDatabase", { url })
@@ -491,29 +502,7 @@ thunk.provide(dataProvider)
 
 ---
 
-## 5. `Result`
-
-`Thunk.run` returns `Promise<Result<T, E>>`:
-
-```typescript
-type Result<T, E> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: E }
-```
-
-`Result` is a discriminated union — check `ok` to access `value` or `error`:
-
-```typescript
-if (result.ok) {
-  result.value // T
-} else {
-  result.error // E
-}
-```
-
----
-
-## 6. `Tracer`
+## 5. `Tracer`
 
 `Tracer` is a built-in `Token` that enables observability via `thunk.span()` and `provider.span()`.
 
