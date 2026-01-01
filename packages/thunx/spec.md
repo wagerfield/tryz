@@ -37,7 +37,7 @@ Five principles shape the API:
 | ----------------------- | ---------------------------------------------------------------------------------------- |
 | **Errors as values**    | Type-safe error handling. Return `TypedError` instances to fail — no `throw` statements. |
 | **Lazy execution**      | Thunks defer computation until run. Enables composition, observation, and retryability.  |
-| **Minimal API surface** | Only 4 classes with just 21 methods combined. Quick to learn, easy to remember.          |
+| **Minimal API surface** | Only 4 classes with just 22 methods combined. Quick to learn, easy to remember.          |
 | **Polymorphic inputs**  | Methods accept and unwrap `T \| Promise<T> \| Thunk<T, E, R>` seamlessly.                |
 | **Immutability**        | Methods return new instances. No mutation, no side effects, predictable behavior.        |
 
@@ -47,16 +47,17 @@ Five principles shape the API:
 
 ### 1.1 Static Methods
 
-| Method                       | Description                  |
-| ---------------------------- | ---------------------------- |
-| [`Thunk.of`](#thunkof)       | Create from value            |
-| [`Thunk.try`](#thunktry)     | Create from factory          |
-| [`Thunk.gen`](#thunkgen)     | Compose via generators       |
-| [`Thunk.delay`](#thunkdelay) | Delay execution              |
-| [`Thunk.all`](#thunkall)     | Concurrent — collect all     |
-| [`Thunk.any`](#thunkany)     | Concurrent — first success   |
-| [`Thunk.race`](#thunkrace)   | Concurrent — first to settle |
-| [`Thunk.run`](#thunkrun)     | Execute thunk                |
+| Method                           | Description                  |
+| -------------------------------- | ---------------------------- |
+| [`Thunk.of`](#thunkof)           | Create from value            |
+| [`Thunk.try`](#thunktry)         | Create from factory          |
+| [`Thunk.gen`](#thunkgen)         | Compose via generators       |
+| [`Thunk.delay`](#thunkdelay)     | Delay execution              |
+| [`Thunk.all`](#thunkall)         | Concurrent — collect all     |
+| [`Thunk.any`](#thunkany)         | Concurrent — first success   |
+| [`Thunk.race`](#thunkrace)       | Concurrent — first to settle |
+| [`Thunk.bracket`](#thunkbracket) | Resource management          |
+| [`Thunk.run`](#thunkrun)         | Execute thunk                |
 
 #### `Thunk.of`
 
@@ -95,10 +96,12 @@ Without `catch`, thrown errors become defects (wrapped in `UnexpectedError`, not
 
 Composes `Thunks` using generator syntax. Yield `Thunks` and `Tokens`. Return `TypedErrors` to fail.
 
+The generator receives an `AbortSignal` (from `Thunk.run`) for cancellation.
+
 ```typescript
-Thunk.gen(function* () {
+Thunk.gen(function* (signal) {
   const auth = yield* AuthService // R += AuthService
-  const user = yield* fetchUser(auth.userId) // E += FetchError
+  const user = yield* fetchUser(auth.userId, { signal }) // E += FetchError
   if (!user.active) return new InactiveError() // E += InactiveError
   return user // T += User
 })
@@ -151,6 +154,28 @@ Returns first to settle (success or failure).
 Thunk.race([fetchFromPrimary(id), fetchFromReplica(id)])
 // Thunk<User, DatabaseError, DatabaseService>
 ```
+
+#### `Thunk.bracket`
+
+Manages resource lifecycle: `acquire`, `use`, `release`. Guarantees `release` runs regardless of success or failure.
+
+```typescript
+Thunk.bracket({
+  acquire: () => openConnection(),
+  use: (conn) => conn.query(sql),
+  release: (conn) => conn.close(),
+})
+// Thunk<QueryResult, ConnectionError | QueryError, never>
+
+// With signal for cancellation
+Thunk.bracket({
+  acquire: (signal) => openConnection({ signal }),
+  use: (conn, signal) => conn.query(sql, { signal }),
+  release: (conn) => conn.close(),
+})
+```
+
+`release` always runs with the acquired resource. Release errors are defects, not tracked in `E`.
 
 #### `Thunk.run`
 
@@ -478,7 +503,7 @@ const databaseProvider = DatabaseService.of(connection)
 | Method                                 | Description          |
 | -------------------------------------- | -------------------- |
 | [`provider.provide`](#providerprovide) | Satisfy requirements |
-| [`provider.merge`](#providermerge)     | Combine providers    |
+| [`provider.combine`](#providercombine) | Combine providers    |
 | [`provider.span`](#providerspan)       | Add tracing span     |
 
 #### `provider.provide`
@@ -495,7 +520,7 @@ databaseProvider.provide(configProvider, loggerProvider)
 // Provider<DatabaseService, E, never>
 ```
 
-#### `provider.merge`
+#### `provider.combine`
 
 Combines providers. Variadic with auto-wiring. Exposes all — `P` channels unioned.
 
@@ -503,11 +528,11 @@ Combines providers. Variadic with auto-wiring. Exposes all — `P` channels unio
 // configProvider: Provider<ConfigService, never, never>
 // loggerProvider: Provider<LoggerService, never, ConfigService>
 
-configProvider.merge(loggerProvider)
+configProvider.combine(loggerProvider)
 // Provider<ConfigService | LoggerService, never, never>
 // ↑ ConfigService in loggerProvider.R satisfied by configProvider.P
 
-configProvider.merge(loggerProvider, cacheProvider)
+configProvider.combine(loggerProvider, cacheProvider)
 // Provider<ConfigService | LoggerService | CacheService, E, R>
 ```
 
@@ -539,8 +564,8 @@ const databaseProvider = DatabaseService.gen(function* () {
 })
 // Provider<DatabaseService, never, ConfigService | LoggerService>
 
-// Merge — expose all, auto-wire
-const coreProvider = configProvider.merge(loggerProvider)
+// Combine — expose all, auto-wire
+const coreProvider = configProvider.combine(loggerProvider)
 // Provider<ConfigService | LoggerService, never, never>
 
 // Provide — encapsulate, satisfy requirements
@@ -666,7 +691,7 @@ thunk.provide(p1, p2) // variadic, auto-wired
 provider.provide(other) // encapsulates — only this.P in output
 // Provider<P, E | Eo, Exclude<R, Po> | Ro>
 
-provider.merge(other) // exposes all — P channels unioned
+provider.combine(other) // exposes all — P channels unioned
 // Provider<P | Po, E | Eo, Exclude<R | Ro, P | Po>>
 ```
 
@@ -715,22 +740,22 @@ if (result.ok) {
 
 ## Appendix: Comparison with Effect
 
-| Concept            | Effect              | Thunx                     |
-| ------------------ | ------------------- | ------------------------- |
-| Core type          | `Effect<A, E, R>`   | `Thunk<T, E, R>`          |
-| Dependency type    | `Layer<Out, E, In>` | `Provider<P, E, R>`       |
-| Lift value         | `Effect.succeed`    | `Thunk.of`                |
-| Create from thunk  | `Effect.try`        | `Thunk.try`               |
-| Delay              | `Effect.sleep`      | `Thunk.delay`             |
-| Fail               | `Effect.fail`       | `return new TypedError()` |
-| Transform          | `Effect.andThen`    | `thunk.then`              |
-| Handle errors      | `Effect.catchTag`   | `thunk.catch`             |
-| Side effects       | `Effect.tap`        | `thunk.tap`               |
-| Run                | `Effect.runPromise` | `Thunk.run`               |
-| Generator syntax   | `Effect.gen`        | `Thunk.gen`               |
-| Service access     | `yield* Tag`        | `yield* Token`            |
-| Service definition | `Tag` class         | `Token` class             |
-| Create layer       | `Layer.succeed`     | `Token.of`                |
-| Layer from thunk   | `Layer.effect`      | `Token.gen`               |
-| Combine layers     | `Layer.merge`       | `provider.merge`          |
-| Wire layers        | `Layer.provide`     | `provider.provide`        |
+| Concept            | Effect               | Thunx                     |
+| ------------------ | -------------------- | ------------------------- |
+| Core type          | `Effect<A, E, R>`    | `Thunk<T, E, R>`          |
+| Dependency type    | `Layer<Out, E, In>`  | `Provider<P, E, R>`       |
+| Lift value         | `Effect.succeed`     | `Thunk.of`                |
+| Create from thunk  | `Effect.try`         | `Thunk.try`               |
+| Delay              | `Effect.sleep`       | `Thunk.delay`             |
+| Fail               | `Effect.fail`        | `return new TypedError()` |
+| Transform          | `Effect.andThen`     | `thunk.then`              |
+| Handle errors      | `Effect.catchTag`    | `thunk.catch`             |
+| Side effects       | `Effect.tap`         | `thunk.tap`               |
+| Run                | `Effect.runPromise`  | `Thunk.run`               |
+| Generator syntax   | `Effect.gen`         | `Thunk.gen`               |
+| Service access     | `yield* Tag`         | `yield* Token`            |
+| Service definition | `Tag` class          | `Token` class             |
+| Create layer       | `Layer.succeed`      | `Token.of`                |
+| Layer from thunk   | `Layer.effect`       | `Token.gen`               |
+| Combine layers     | `Layer.provideMerge` | `provider.combine`        |
+| Wire layers        | `Layer.provide`      | `provider.provide`        |
