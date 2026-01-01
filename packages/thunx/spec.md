@@ -455,11 +455,13 @@ ConfigService.of({ databaseUrl: "postgres://..." })
 
 Creates a [`Provider`](#4-provider) from a generator. Return type must match `Shape`. `E` and `R` flow from yielded Thunks and returned TypedErrors.
 
+The generator receives an `AbortSignal` (from `Thunk.run`) for cancellation.
+
 ```typescript
-DatabaseService.gen(function* () {
+DatabaseService.gen(function* (signal) {
   const config = yield* ConfigService // R += ConfigService
   if (!config.databaseUrl) return new DatabaseError() // E += DatabaseError
-  return createDatabase(config.databaseUrl)
+  return createDatabase(config.databaseUrl, { signal })
 })
 // Provider<DatabaseService, DatabaseError, ConfigService>
 ```
