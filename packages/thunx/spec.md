@@ -472,9 +472,9 @@ DatabaseService.gen(function* (signal) {
 
 Providers supply `Token` implementations with type `Provider<P, E, R>` where:
 
-- `P` — provided token type
-- `E` — error type
-- `R` — required dependency type
+- `P` — provided token(s) type
+- `E` — error(s) type
+- `R` — required token(s) type
 
 Created via [`Token.of`](#tokenof) or [`Token.gen`](#tokengen). Immutable — methods return new instances.
 
